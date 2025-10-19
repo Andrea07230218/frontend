@@ -1,0 +1,45 @@
+package com.example.thelastone.data.model
+
+data class Trip(
+    val id: String,
+    val createdBy: String,
+    val name: String,
+    val totalBudget: Int?,
+    val startDate: String,
+    val endDate: String,
+    val activityStart: String?, // 新增
+    val activityEnd: String?, // 新增
+    val avgAge: AgeBand, // 新增
+    val transportPreferences: List<String>,
+    val useGmapsRating: Boolean,
+    val styles: List<String>,
+    val visibility: TripVisibility = TripVisibility.PRIVATE,
+    val members: List<User> = emptyList(),
+    val days: List<DaySchedule> = emptyList()
+)
+
+enum class TripVisibility { PUBLIC, PRIVATE }
+
+data class DaySchedule(
+    val date: String,
+    val activities: List<Activity> = emptyList()
+)
+
+data class Activity(
+    val id: String,
+    val place: Place,
+    val startTime: String? = null,  // "09:00"
+    val endTime: String? = null,    // "11:30"
+    val note: String? = null
+)
+
+// 放在同檔最上方或 utils 檔都可以
+fun Trip.coverPhotoUrl(): String? {
+    for (day in days) {
+        for (act in day.activities) {
+            val url = act.place.photoUrl
+            if (!url.isNullOrBlank()) return url
+        }
+    }
+    return null
+}
