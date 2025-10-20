@@ -10,19 +10,14 @@ data class TripStats(
     val participating: Int
 )
 
-// CHANGED: TripRepository.kt
 interface TripRepository {
+    // --- 原有功能 ---
     suspend fun createTrip(form: TripForm): Trip
     suspend fun saveTrip(trip: Trip): Trip
-
-    // 原來「看自己的」
     suspend fun getMyTrips(): List<Trip>
     fun observeMyTrips(): Flow<List<Trip>>
-
-    // NEW：看「公開」的（Explore 會用這個）
     suspend fun getPublicTrips(): List<Trip>
     fun observePublicTrips(): Flow<List<Trip>>
-
     suspend fun getTripDetail(tripId: String): Trip
     fun observeTripDetail(tripId: String): Flow<Trip>
     suspend fun addActivity(tripId: String, dayIndex: Int, activity: Activity)
@@ -30,7 +25,10 @@ interface TripRepository {
     suspend fun removeActivity(tripId: String, dayIndex: Int, activityIndex: Int)
     suspend fun deleteTrip(tripId: String)
     suspend fun addMembers(tripId: String, userIds: List<String>)
-
     suspend fun getTripStatsFor(userId: String): TripStats
+
+    // --- 我們為 AI 行程生成新增的功能 ---
+    fun setTripFormForPreview(form: TripForm)
+    fun getTripFormForPreview(): TripForm?
 }
 

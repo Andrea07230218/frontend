@@ -70,41 +70,48 @@ fun CreateTripFormScreen(
     var showStartTime by remember { mutableStateOf(false) }
     var showEndTime by remember { mutableStateOf(false) }
 
-    // 驗證（僅提示）
-    val validate = remember(form) {
-        val nameError = when {
-            form.name.isBlank() -> "請輸入旅遊名稱"
-            form.name.length > 50 -> "名稱最多 50 字"
-            else -> null
+    // 驗證（包含 locations）
+    val validationErrors = remember(form) {
+        val errors = mutableMapOf<String, String>()
+
+        if (form.name.isBlank()) {
+            errors["name"] = "請輸入旅遊名稱"
+        } else if (form.name.length > 50) {
+            errors["name"] = "名稱最多 50 字"
         }
+
+        // ✅ [新增] locations 的驗證
+        if (form.locations.isBlank()) {
+            errors["location"] = "請輸入旅遊地點"
+        }
+
         val fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd")
         val s = runCatching { LocalDate.parse(form.startDate, fmt) }.getOrNull()
         val e = runCatching { LocalDate.parse(form.endDate, fmt) }.getOrNull()
-        val dateError = when {
-            s == null || e == null -> "請選擇有效日期"
-            e.isBefore(s) -> "結束日期需晚於開始日期"
-            else -> null
+        when {
+            s == null || e == null -> errors["date"] = "請選擇有效日期"
+            e.isBefore(s) -> errors["date"] = "結束日期需晚於開始日期"
         }
-        val timeError = when {
-            (form.activityStart != null) xor (form.activityEnd != null) -> "活動時間需成對輸入"
-            (form.activityStart != null && form.activityEnd != null) -> {
-                val tfmt = DateTimeFormatter.ofPattern("HH:mm")
-                val ts = runCatching { LocalTime.parse(form.activityStart, tfmt) }.getOrNull()
-                val te = runCatching { LocalTime.parse(form.activityEnd, tfmt) }.getOrNull()
-                when {
-                    ts == null || te == null -> "活動時間格式錯誤"
-                    !te.isAfter(ts) -> "結束時間需晚於開始時間"
-                    else -> null
-                }
+
+        if ((form.activityStart != null) xor (form.activityEnd != null)) {
+            errors["time"] = "活動時間需成對輸入"
+        } else if (form.activityStart != null && form.activityEnd != null) {
+            val tfmt = DateTimeFormatter.ofPattern("HH:mm")
+            val ts = runCatching { LocalTime.parse(form.activityStart, tfmt) }.getOrNull()
+            val te = runCatching { LocalTime.parse(form.activityEnd, tfmt) }.getOrNull()
+            when {
+                ts == null || te == null -> errors["time"] = "活動時間格式錯誤"
+                !te.isAfter(ts) -> errors["time"] = "結束時間需晚於開始時間"
             }
-            else -> null
         }
-        Triple(nameError, dateError, timeError)
+        errors
     }
-    val nameErr = validate.first
-    val dateErr = validate.second
-    val timeErr = validate.third
-    val allValid = nameErr == null && dateErr == null && timeErr == null && form.aiDisclaimerChecked
+
+    val nameErr = if (submitted) validationErrors["name"] else null
+    val locErr = if (submitted) validationErrors["location"] else null // ✅ [新增]
+    val dateErr = if (submitted) validationErrors["date"] else null
+    val timeErr = if (submitted) validationErrors["time"] else null
+    val allValid = validationErrors.isEmpty() && form.aiDisclaimerChecked
 
     // ---- UI ----
     Column(modifier = Modifier.fillMaxSize().padding(padding)) {
@@ -113,25 +120,43 @@ fun CreateTripFormScreen(
                 .weight(1f)
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(top = 16.dp) // 給頂部一點空間
         ) {
-            // 1) 旅遊名稱（無預設：顯示空白）
+            // 1) 旅遊名稱
             item {
                 OutlinedTextField(
                     value = form.name,
                     onValueChange = viewModel::updateName,
                     label = { Text("旅遊名稱（必填）") },
                     singleLine = true,
-                    // 只有「送出後」才畫紅框
-                    isError = submitted && nameErr != null,
+                    isError = nameErr != null,
                     supportingText = {
                         val count = "${form.name.length}/50"
-                        Text(text = if (submitted && nameErr != null) nameErr else count)
+                        Text(text = nameErr ?: count)
                     },
                     modifier = Modifier.fillMaxWidth()
                 )
             }
 
+            // ✅ [新增] 2. 旅遊地點
+            item {
+                OutlinedTextField(
+                    value = form.locations,
+                    onValueChange = viewModel::updateLocations, // 👈 呼叫 ViewModel 更新
+                    label = { Text("旅遊地點（必填）") },
+                    placeholder = { Text("例如：台北、九份、台南") },
+                    singleLine = true,
+                    isError = locErr != null,
+                    supportingText = {
+                        val helperText = locErr ?: "請用地點名稱，並用逗號或空格分隔"
+                        Text(text = helperText)
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            // 3) 可見性
             item {
                 Column {
                     Text("可見性", style = MaterialTheme.typography.labelLarge)
@@ -160,7 +185,7 @@ fun CreateTripFormScreen(
                     Text(tip, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            // 2) 日期區間（無預設顯示；按確定自動關閉）
+            // 4) 日期區間
             item {
                 Column {
                     Text("旅遊日期（必填）", style = MaterialTheme.typography.labelLarge)
@@ -176,7 +201,7 @@ fun CreateTripFormScreen(
                         },
                         leadingIcon = { Icon(Icons.Filled.DateRange, null) }
                     )
-                    if (submitted && dateErr != null) {
+                    if (dateErr != null) {
                         Spacer(Modifier.height(4.dp))
                         Text(
                             dateErr,
@@ -187,7 +212,7 @@ fun CreateTripFormScreen(
                 }
             }
 
-            // 8) 總預算（選填）
+            // 5) 總預算
             item {
                 OutlinedTextField(
                     value = form.totalBudget?.toString() ?: "",
@@ -201,7 +226,7 @@ fun CreateTripFormScreen(
                 )
             }
 
-            // 3) 活動時間（無預設顯示；清除鍵 TextButton 靠右）
+            // 6) 活動時間
             item {
                 Column {
                     Text("活動時間（選填）", style = MaterialTheme.typography.labelLarge)
@@ -209,11 +234,7 @@ fun CreateTripFormScreen(
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         AssistChip(
                             onClick = { showStartTime = true },
-                            label = {
-                                Text(
-                                    text = form.activityStart ?: "開始時間",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                ) },
+                            label = { Text(form.activityStart ?: "開始時間") },
                             leadingIcon = { Icon(Icons.Filled.Schedule, null) }
                         )
                         AssistChip(
@@ -221,22 +242,17 @@ fun CreateTripFormScreen(
                             label = { Text(form.activityEnd ?: "結束時間") },
                             leadingIcon = { Icon(Icons.Filled.Schedule, null) }
                         )
-                        Spacer(Modifier.width(8.dp))
+                        Spacer(Modifier.weight(1f))
                         if (form.activityStart != null || form.activityEnd != null) {
                             TextButton(
                                 onClick = {
                                     viewModel.updateActivityStart(null)
                                     viewModel.updateActivityEnd(null)
-                                },
-                                colors = ButtonDefaults.textButtonColors(
-                                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            ) {
-                                Text("清除")
-                            }
+                                }
+                            ) { Text("清除") }
                         }
                     }
-                    if (submitted && timeErr != null) {
+                    if (timeErr != null) {
                         Spacer(Modifier.height(4.dp))
                         Text(
                             timeErr,
@@ -247,7 +263,7 @@ fun CreateTripFormScreen(
                 }
             }
 
-            // 4) 旅遊風格（多選）
+            // 7) 旅遊風格
             item {
                 Column {
                     Text("旅遊風格（多選）", style = MaterialTheme.typography.labelLarge)
@@ -267,7 +283,7 @@ fun CreateTripFormScreen(
                 }
             }
 
-            // 5) 偏好交通（多選）
+            // 8) 偏好交通
             item {
                 Column {
                     Text("偏好交通（多選）", style = MaterialTheme.typography.labelLarge)
@@ -287,7 +303,7 @@ fun CreateTripFormScreen(
                 }
             }
 
-            // 6) 平均年齡（單選）
+            // 9) 平均年齡
             item {
                 Column {
                     Text("平均年齡（必選）", style = MaterialTheme.typography.labelLarge)
@@ -297,12 +313,9 @@ fun CreateTripFormScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         val all = listOf(
-                            AgeBand.IGNORE to "不列入考量",
-                            AgeBand.UNDER_17 to "17以下",
-                            AgeBand.A18_25 to "18-25",
-                            AgeBand.A26_35 to "26-35",
-                            AgeBand.A36_45 to "36-45",
-                            AgeBand.A46_55 to "46-55",
+                            AgeBand.IGNORE to "不列入考量", AgeBand.UNDER_17 to "17以下",
+                            AgeBand.A18_25 to "18-25", AgeBand.A26_35 to "26-35",
+                            AgeBand.A36_45 to "36-45", AgeBand.A46_55 to "46-55",
                             AgeBand.A56_PLUS to "56以上"
                         )
                         all.forEach { (band, label) ->
@@ -316,10 +329,11 @@ fun CreateTripFormScreen(
                 }
             }
 
-            // 7) 參考 Google 評分（Switch 本身會呈現當前值，無預設顯示即由 VM 控制）
+            // 10) 參考 Google 評分
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
@@ -333,26 +347,19 @@ fun CreateTripFormScreen(
                 }
             }
 
-            // 8) 其他需求（選填，用於 AI prompt）
+            // 11) 其他需求
             item {
-                Column {
-                    Text("其他需求（選填）", style = MaterialTheme.typography.labelLarge)
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = form.extraNote ?: "",
-                        onValueChange = viewModel::updateExtraNote,
-                        label = { Text("輸入其他需求") },
-                        supportingText = {
-                            Text("例如：喜歡看夜景、想吃米其林餐廳、不想走太多路…")
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = false,
-                        maxLines = 3
-                    )
-                }
+                OutlinedTextField(
+                    value = form.extraNote ?: "",
+                    onValueChange = viewModel::updateExtraNote,
+                    label = { Text("其他需求（選填）") },
+                    supportingText = { Text("例如：喜歡看夜景、想吃米其林餐廳…") },
+                    modifier = Modifier.fillMaxWidth(),
+                    maxLines = 3
+                )
             }
 
-            // 9) AI 提醒聲明（核取方塊）
+            // 12) AI 提醒聲明
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -360,13 +367,12 @@ fun CreateTripFormScreen(
                 ) {
                     Checkbox(
                         checked = form.aiDisclaimerChecked,
-                        onCheckedChange = { viewModel.setAiDisclaimer(it) }
+                        onCheckedChange = viewModel::setAiDisclaimer
                     )
-                    Spacer(Modifier.width(8.dp))
                     Text(
                         "行程建議由 AI 產生，僅供參考，並非完全精準，請自行調整。",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        modifier = Modifier.padding(start = 8.dp)
                     )
                 }
                 if (submitted && !form.aiDisclaimerChecked) {
@@ -374,14 +380,15 @@ fun CreateTripFormScreen(
                     Text(
                         "請勾選此聲明以繼續",
                         color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(start = 16.dp)
                     )
                 }
             }
-            item { Spacer(Modifier.height(60.dp)) }
+            item { Spacer(Modifier.height(16.dp)) } // 讓底部按鈕有空間
         }
 
-        // 底部按鈕（滿版）
+        // 底部按鈕
         Button(
             onClick = {
                 submitted = true
@@ -390,16 +397,13 @@ fun CreateTripFormScreen(
                     onPreview()
                 }
             },
-            enabled = allValid,   // ← 直接用 allValid
             modifier = Modifier.fillMaxWidth().padding(16.dp)
         ) { Text("預覽") }
-
     }
 
-    // ===== DateRangePickerDialog（官方建議做法：在 Confirm 時讀取 state 並關閉） =====
+    // ===== Dialogs =====
     if (showDateRange) {
         val formatter = remember { DateTimeFormatter.ofPattern("yyyy-MM-dd") }
-        // 不給初始選取（符合「無預設值」），讓使用者自行選
         val dateState = rememberDateRangePickerState()
 
         DatePickerDialog(
@@ -411,12 +415,9 @@ fun CreateTripFormScreen(
                     if (sMs != null && eMs != null) {
                         val s = Instant.ofEpochMilli(sMs).atZone(ZoneId.systemDefault()).toLocalDate()
                         val e = Instant.ofEpochMilli(eMs).atZone(ZoneId.systemDefault()).toLocalDate()
-                        viewModel.updateDateRange(
-                            s.format(formatter),
-                            e.format(formatter)
-                        )
+                        viewModel.updateDateRange(s.format(formatter), e.format(formatter))
                     }
-                    showDateRange = false // ← 按「確定」即關閉
+                    showDateRange = false
                 }) { Text("確定") }
             },
             dismissButton = {
@@ -427,32 +428,17 @@ fun CreateTripFormScreen(
         }
     }
 
-    // ===== TimePicker（不預先展示值；打開對話框時用系統時間做游標，不影響「無預設顯示」） =====
     PlatformTimePickerDialog(
         show = showStartTime,
-        initial = run {
-            val tfmt = DateTimeFormatter.ofPattern("HH:mm")
-            form.activityStart?.let { runCatching { LocalTime.parse(it, tfmt) }.getOrNull() }
-                ?: LocalTime.now()
-        },
+        initial = form.activityStart?.let { runCatching { LocalTime.parse(it) }.getOrNull() } ?: LocalTime.now(),
         onDismiss = { showStartTime = false },
-        onTimePicked = { picked ->
-            viewModel.updateActivityStart(picked.toString().substring(0, 5))
-            showStartTime = false
-        }
+        onTimePicked = { picked -> viewModel.updateActivityStart(picked.format(DateTimeFormatter.ofPattern("HH:mm"))) }
     )
     PlatformTimePickerDialog(
         show = showEndTime,
-        initial = run {
-            val tfmt = DateTimeFormatter.ofPattern("HH:mm")
-            form.activityEnd?.let { runCatching { LocalTime.parse(it, tfmt) }.getOrNull() }
-                ?: LocalTime.now()
-        },
+        initial = form.activityEnd?.let { runCatching { LocalTime.parse(it) }.getOrNull() } ?: LocalTime.now(),
         onDismiss = { showEndTime = false },
-        onTimePicked = { picked ->
-            viewModel.updateActivityEnd(picked.toString().substring(0, 5))
-            showEndTime = false
-        }
+        onTimePicked = { picked -> viewModel.updateActivityEnd(picked.format(DateTimeFormatter.ofPattern("HH:mm"))) }
     )
 }
 
@@ -466,15 +452,18 @@ private fun PlatformTimePickerDialog(
 ) {
     if (!show) return
     val context = LocalContext.current
+    // 使用 LaunchedEffect 確保 Dialog 只在 show 變為 true 時觸發一次
     LaunchedEffect(show) {
-        val dlg = TimePickerDialog(
+        TimePickerDialog(
             context,
             { _, h, m -> onTimePicked(LocalTime.of(h, m)) },
             initial.hour,
             initial.minute,
             is24Hour
-        )
-        dlg.setOnDismissListener { onDismiss() }
-        dlg.show()
+        ).apply {
+            setOnDismissListener { onDismiss() }
+            show()
+        }
     }
 }
+

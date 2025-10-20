@@ -13,14 +13,17 @@ import com.example.thelastone.data.remote.SearchNearbyBody
 import com.example.thelastone.data.remote.SearchTextBody
 import com.example.thelastone.data.repo.PlacesRepository
 import com.example.thelastone.data.repo.RankPreference
+import com.example.thelastone.di.GoogleApi // 👈 [新增] 匯入我們的標籤
 import com.example.thelastone.utils.buildOpenStatus
 import com.example.thelastone.utils.stripCountryTaiwanPrefix
 import com.example.thelastone.utils.stripPostalCodeIfAny
 import javax.inject.Inject
+import javax.inject.Singleton
 
+@Singleton
 // data/repo/impl/PlacesRepositoryImpl.kt
 class PlacesRepositoryImpl @Inject constructor(
-    private val api: PlacesApi
+    @GoogleApi private val api: PlacesApi // 👈 [ [ [ 最重要的修改：加上 @GoogleApi 標籤 ] ] ]
 ) : PlacesRepository {
 
     override fun buildPhotoUrl(photoName: String, maxWidth: Int): String =
@@ -139,3 +142,4 @@ class PlacesRepositoryImpl @Inject constructor(
             )
         }
 }
+

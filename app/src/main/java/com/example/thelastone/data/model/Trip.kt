@@ -1,15 +1,23 @@
 package com.example.thelastone.data.model
 
+// 確保您專案中已定義這些 enum 和 data class
+// enum class AgeBand (在 TripForm.kt 中)
+// data class User (在 User.kt 中)
+// data class Place (在 Place.kt 中)
+
+enum class TripVisibility { PUBLIC, PRIVATE }
+
 data class Trip(
     val id: String,
     val createdBy: String,
     val name: String,
+    val locations: String, // 👈 [ [ [ 在這裡加上新的欄位 ] ] ]
     val totalBudget: Int?,
     val startDate: String,
     val endDate: String,
-    val activityStart: String?, // 新增
-    val activityEnd: String?, // 新增
-    val avgAge: AgeBand, // 新增
+    val activityStart: String?,
+    val activityEnd: String?,
+    val avgAge: AgeBand,
     val transportPreferences: List<String>,
     val useGmapsRating: Boolean,
     val styles: List<String>,
@@ -17,8 +25,6 @@ data class Trip(
     val members: List<User> = emptyList(),
     val days: List<DaySchedule> = emptyList()
 )
-
-enum class TripVisibility { PUBLIC, PRIVATE }
 
 data class DaySchedule(
     val date: String,
@@ -33,7 +39,7 @@ data class Activity(
     val note: String? = null
 )
 
-// 放在同檔最上方或 utils 檔都可以
+// 您 GitHub 中的輔助函式，保持不變
 fun Trip.coverPhotoUrl(): String? {
     for (day in days) {
         for (act in day.activities) {
@@ -43,3 +49,4 @@ fun Trip.coverPhotoUrl(): String? {
     }
     return null
 }
+

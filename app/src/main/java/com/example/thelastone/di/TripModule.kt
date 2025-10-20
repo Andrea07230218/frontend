@@ -16,8 +16,10 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class TripModule {
-    @Binds @Singleton
-    abstract fun bindTripRepository(
-        impl: FakeTripRepository
-    ): TripRepository
+/*
+@Binds @Singleton
+abstract fun bindTripRepository(
+   impl: FakeTripRepository
+): TripRepository
+ */
 }
