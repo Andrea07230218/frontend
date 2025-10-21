@@ -1,5 +1,7 @@
 package com.example.thelastone.data.repo.impl
 
+import android.annotation.SuppressLint
+import android.location.Geocoder
 import com.example.thelastone.BuildConfig
 import com.example.thelastone.data.model.PlaceDetails
 import com.example.thelastone.data.model.PlaceLite
@@ -13,21 +15,47 @@ import com.example.thelastone.data.remote.SearchNearbyBody
 import com.example.thelastone.data.remote.SearchTextBody
 import com.example.thelastone.data.repo.PlacesRepository
 import com.example.thelastone.data.repo.RankPreference
-import com.example.thelastone.di.GoogleApi // 👈 [新增] 匯入我們的標籤
+import com.example.thelastone.di.GoogleApi
 import com.example.thelastone.utils.buildOpenStatus
 import com.example.thelastone.utils.stripCountryTaiwanPrefix
 import com.example.thelastone.utils.stripPostalCodeIfAny
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.CancellationTokenSource
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.coroutines.resume
+import kotlin.coroutines.suspendCoroutine
 
 @Singleton
-// data/repo/impl/PlacesRepositoryImpl.kt
 class PlacesRepositoryImpl @Inject constructor(
-    @GoogleApi private val api: PlacesApi // 👈 [ [ [ 最重要的修改：加上 @GoogleApi 標籤 ] ] ]
+    @GoogleApi private val api: PlacesApi, // 👈 [修正] 明確要求 @GoogleApi 標籤的 PlacesApi
+    private val geocoder: Geocoder, // 👈 [修正] 加入 Geocoder 依賴
+    private val fusedLocationClient: FusedLocationProviderClient // 👈 [修正] 加入 FusedLocationProviderClient 依賴
 ) : PlacesRepository {
 
     override fun buildPhotoUrl(photoName: String, maxWidth: Int): String =
         "https://places.googleapis.com/v1/$photoName/media?maxWidthPx=$maxWidth&key=${BuildConfig.MAPS_API_KEY}"
+
+    // 這是您 GitHub 上的完整實作
+    @SuppressLint("MissingPermission")
+    override suspend fun getDeviceLocation(): LatLng? = suspendCoroutine { continuation ->
+        val token = CancellationTokenSource().token
+        fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, token)
+            .addOnSuccessListener { loc ->
+                if (loc != null) {
+                    continuation.resume(LatLng(loc.latitude, loc.longitude))
+                } else {
+                    continuation.resume(null)
+                }
+            }
+            .addOnFailureListener {
+                continuation.resume(null)
+            }
+            .addOnCanceledListener {
+                continuation.resume(null)
+            }
+    }
 
     override suspend fun searchText(
         query: String,
@@ -66,7 +94,7 @@ class PlacesRepositoryImpl @Inject constructor(
                 includedTypes = includedTypes,
                 maxResultCount = maxResultCount.coerceIn(1, 20),
                 openNow = openNow,
-                rankPreference = rankPreference.name,   // enum → API 字串
+                rankPreference = rankPreference.name,
                 languageCode = "zh-TW",
                 regionCode = "TW"
             )
@@ -75,8 +103,8 @@ class PlacesRepositoryImpl @Inject constructor(
     }
 
     override suspend fun fetchDetails(placeId: String): PlaceDetails {
-        // 這裡不要加 "places/"
-        val apiPlace = api.fetchDetails(placeId = placeId)
+        // 根據您 GitHub 的程式碼，這裡需要加上 "places/"
+        val apiPlace = api.fetchDetails(placeId = "places/$placeId")
 
         val id = apiPlace.id?.substringAfter("places/") ?: placeId
         val photoName = apiPlace.photos?.firstOrNull()?.name

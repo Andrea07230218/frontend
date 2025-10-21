@@ -17,8 +17,11 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object RecommendModule {
 
-    // 您的後端 API 的 Base URL (for Android Emulator)
-    private const val RECOMMEND_BASE_URL = "http://10.0.2.2:8000/"
+    /**
+     * 您的後端 API 的 Base URL。
+     * 對於 Android 模擬器，必須使用 10.0.2.2 來指向您電腦的 localhost。
+     */
+    private const val RECOMMEND_BASE_URL = "http://140.117.71.66:8000/docs"
 
     @Provides
     @Singleton
@@ -37,8 +40,8 @@ object RecommendModule {
     @Singleton
     @RecommendApi // 標記
     fun provideRecommendRetrofit(
-        @RecommendApi okHttpClient: OkHttpClient, // 指定使用 @RecommendApi 的 client
-        json: Json // 來自您的 SerializationModule
+        @RecommendApi okHttpClient: OkHttpClient,
+        json: Json
     ): Retrofit {
         val contentType = "application/json".toMediaType()
         return Retrofit.Builder()
@@ -50,7 +53,10 @@ object RecommendModule {
 
     @Provides
     @Singleton
-    fun provideApiService(@RecommendApi retrofit: Retrofit): ApiService {
+    fun provideApiService(
+        @RecommendApi retrofit: Retrofit
+    ): ApiService {
         return retrofit.create(ApiService::class.java)
     }
 }
+
