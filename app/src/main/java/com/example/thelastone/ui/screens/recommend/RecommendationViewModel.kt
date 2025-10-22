@@ -28,8 +28,7 @@ class RecommendationViewModel @Inject constructor(
 
         // 1. 馬上將狀態設為 "載入中"，通知 UI 顯示 ProgressBar
         _uiState.value = RecommendationUiState.Loading
-
-        // 2. 啟動一個協程
+// 2. 啟動一個協程
         viewModelScope.launch {
             try {
                 // 3. 準備請求物件
@@ -44,7 +43,6 @@ class RecommendationViewModel @Inject constructor(
                 } else {
                     _uiState.value = RecommendationUiState.Success(response)
                 }
-
             } catch (e: Exception) {
                 // 6. 捕捉任何網路或解析錯誤
                 e.printStackTrace()
