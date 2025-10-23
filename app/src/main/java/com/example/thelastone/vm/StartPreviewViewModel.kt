@@ -1,13 +1,14 @@
+// 檔案路徑：vm/StartPreviewViewModel.kt
 package com.example.thelastone.vm
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.thelastone.data.mapper.toApiRequestForm
+// import com.example.thelastone.data.mapper.toApiRequestForm // 👈 不再需要 ViewModel 直接用 Mapper
+import com.example.thelastone.data.model.Trip
 import com.example.thelastone.data.model.TripForm
-import com.example.thelastone.data.remote.ApiService
-import com.example.thelastone.data.remote.RecommendRequest
-import com.example.thelastone.data.remote.RecommendationResponse
-import com.example.thelastone.data.repo.TripRepository
+// import com.example.thelastone.data.remote.ApiService // 👈 ViewModel 不應該直接依賴 ApiService
+// import com.example.thelastone.data.remote.RecommendationForm // 👈 ViewModel 不關心 API DTO
+import com.example.thelastone.data.repo.TripRepository // 👈 ViewModel 應該依賴 Repository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,43 +18,34 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/**
- * AI 行程生成過程的 UI 狀態
- */
+// --- (GenerationState, NavigationEffect, StartPreviewUiState 保持不變) ---
 sealed interface GenerationState {
-    data object Idle : GenerationState // 閒置狀態，尚未開始生成
-    data object Loading : GenerationState // 正在呼叫 API，生成中
-    data class Success(val response: RecommendationResponse) : GenerationState // 生成成功
-    data class Error(val message: String) : GenerationState // 生成失敗
+    data object Idle : GenerationState
+    data object Loading : GenerationState
+    data class Success(val trip: Trip) : GenerationState // (應已是 Trip)
+    data class Error(val message: String) : GenerationState
 }
-
-/**
- * 一次性的導航指令 (Side-Effect)
- */
 sealed interface NavigationEffect {
     data class NavigateToTripDetail(val tripId: String) : NavigationEffect
 }
-
-/**
- * 預覽畫面的整體 UI 狀態
- */
 data class StartPreviewUiState(
     val form: TripForm? = null,
     val loading: Boolean = true,
     val error: String? = null,
-    val generationState: GenerationState = GenerationState.Idle // 追蹤 API 呼叫狀態
+    val generationState: GenerationState = GenerationState.Idle
 )
+// --- (State/Effect/UiState 定義結束) ---
 
 @HiltViewModel
 class StartPreviewViewModel @Inject constructor(
-    private val tripRepo: TripRepository,
-    private val apiService: ApiService // 注入我們自己的 API Service
+    // 🔽🔽 1. 只注入 Repository 🔽🔽
+    private val tripRepo: TripRepository
+    // private val apiService: ApiService // 👈 移除 ApiService 注入
+    // 🔼🔼
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(StartPreviewUiState())
     val state = _state.asStateFlow()
-
-    // 🔽 [新增] 使用 SharedFlow 來發送「導航」等一次性指令 🔽
     private val _navigationEffect = MutableSharedFlow<NavigationEffect>()
     val navigationEffect = _navigationEffect.asSharedFlow()
 
@@ -78,39 +70,33 @@ class StartPreviewViewModel @Inject constructor(
     /**
      * 由 UI 呼叫，觸發 AI 行程生成
      * @param userId 目前登入的使用者 ID
-     * @param excludeInput 使用者在預覽畫面輸入的「排除條件」字串
+     * @param excludeInput 使用者在預覽畫面輸入的「排除條件」字串 (這部分邏輯需要移到 Repository 或 UseCase)
      */
     fun generateItinerary(userId: String, excludeInput: String) {
         val currentForm = _state.value.form ?: return
 
-        // 1. 將使用者輸入的排除條件字串轉為列表
-        val excludeTerms = excludeInput.split(Regex("[,、，\\s]+"))
-            .filter { it.isNotBlank() }
+        // ‼️ 理想情況下，"加入排除條件" 的邏輯應該在 Repository 或 UseCase 中完成，
+        // ViewModel 只負責傳遞 UI 輸入。
+        // 但我們先在這裡簡單處理，讓它能跑起來。
+        // 我們假設 TripForm 有 extraNote 欄位可以放。
+        val formWithExclusion = currentForm.copy(
+            extraNote = (currentForm.extraNote ?: "") + "\nExclude: $excludeInput"
+        )
 
-        // 2. 更新 UI 狀態為「生成中」
         _state.update { it.copy(generationState = GenerationState.Loading) }
 
         viewModelScope.launch {
             try {
-                // 3. 使用 Mapper 將 UI 表單轉換為 API 請求格式
-                val apiRequestForm = currentForm.toApiRequestForm(excludeTerms)
-                val request = RecommendRequest(userId = userId, form = apiRequestForm)
+                // 2. ✅ 呼叫 tripRepo.createTrip，並傳入 userId
+                val responseTrip = tripRepo.createTrip(formWithExclusion, userId)
 
-                // 4. 呼叫 API
-                val response = apiService.getRecommendations(request)
-
-                // 5. 根據 API 回應更新 UI 狀態
-                if (response.error) {
-                    _state.update {
-                        it.copy(generationState = GenerationState.Error(response.errorMessage ?: "API 回報錯誤"))
-                    }
-                } else {
-                    _state.update {
-                        it.copy(generationState = GenerationState.Success(response))
-                    }
+                // 3. 成功
+                _state.update {
+                    it.copy(generationState = GenerationState.Success(responseTrip))
                 }
 
             } catch (e: Exception) {
+                // 4. 失敗
                 e.printStackTrace()
                 _state.update {
                     it.copy(generationState = GenerationState.Error(e.message ?: "未知的網路錯誤"))
@@ -121,19 +107,17 @@ class StartPreviewViewModel @Inject constructor(
 
     /**
      * 由 UI 上的「儲存並完成」按鈕呼叫
+     * (這個函式現在邏輯正確)
      */
     fun onConfirmAndSave() {
         viewModelScope.launch {
-            // 從目前的成功狀態中取得 tripId
             val currentState = _state.value.generationState
             if (currentState is GenerationState.Success) {
-                val tripId = currentState.response.tripId
+                val tripId = currentState.trip.id
                 if (tripId.isNotBlank()) {
-                    // 發送「導航」指令給 UI
                     _navigationEffect.emit(NavigationEffect.NavigateToTripDetail(tripId))
                 }
             }
         }
     }
 }
-

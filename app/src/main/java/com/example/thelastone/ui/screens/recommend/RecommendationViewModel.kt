@@ -1,53 +1,77 @@
-package com.example.thelastone.ui.screens.recommend // 👈 確保 package name 正確
+// 檔案路徑：ui/screens/recommend/RecommendationViewModel.kt
+package com.example.thelastone.ui.screens.recommend
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.thelastone.data.remote.ApiService
-import com.example.thelastone.data.remote.RecommendationForm
-import com.example.thelastone.data.remote.RecommendRequest // 👈 確保您有 import 這個 data class
+// 從 RecommendationState.kt 導入 Form 和 State
+import com.example.thelastone.ui.screens.recommend.RecommendationForm
+import com.example.thelastone.ui.screens.recommend.RecommendationUiState
+// 你的資料層模型
+import com.example.thelastone.data.model.TripForm
+import com.example.thelastone.data.repo.TripRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-@HiltViewModel // 👈 告訴 Hilt 這是個 ViewModel
+@HiltViewModel
 class RecommendationViewModel @Inject constructor(
-    private val apiService: ApiService // 👈 Hilt 會自動從 RecommendModule 取得 ApiService 實例
+    private val tripRepository: TripRepository // 注入 Repository
 ) : ViewModel() {
 
-    // 私有的 MutableStateFlow，只在 ViewModel 內部更改
     private val _uiState = MutableStateFlow<RecommendationUiState>(RecommendationUiState.Idle)
-    // 公開的 StateFlow，供 UI 觀察
-    val uiState: StateFlow<RecommendationUiState> = _uiState
+    val uiState: StateFlow<RecommendationUiState> = _uiState.asStateFlow()
 
     /**
-     * 供 UI 呼叫的函式，用來觸發 API
+     * 從 UI 呼叫此函式以獲取 AI 推薦
+     * ✅ 已加回 userId 參數
+     *
+     * @param userId 目前登入的使用者 ID
+     * @param form 從 Compose UI 收集到的表單資料 (RecommendationForm)
      */
+    // 🔽🔽 1. 加回 userId 參數 🔽🔽
     fun fetchRecommendations(userId: String, form: RecommendationForm) {
-
-        // 1. 馬上將狀態設為 "載入中"，通知 UI 顯示 ProgressBar
-        _uiState.value = RecommendationUiState.Loading
-// 2. 啟動一個協程
+        // 🔼🔼
         viewModelScope.launch {
+            _uiState.value = RecommendationUiState.Loading
             try {
-                // 3. 準備請求物件
-                val request = RecommendRequest(userId = userId, form = form)
+                // 2. 將 UI 表單 (RecommendationForm) 轉換為資料層表單 (TripForm)
+                val tripForm: TripForm = form.toTripForm()
 
-                // 4. 呼叫 API
-                val response = apiService.getRecommendations(request)
+                // 3. ✅ 呼叫 Repository 時傳入 userId
+                val resultTrip = tripRepository.createTrip(tripForm, userId)
 
-                // 5. 根據 API 回應更新狀態
-                if (response.error) {
-                    _uiState.value = RecommendationUiState.Error(response.errorMessage ?: "API 回報錯誤")
-                } else {
-                    _uiState.value = RecommendationUiState.Success(response)
-                }
+                _uiState.value = RecommendationUiState.Success(resultTrip)
             } catch (e: Exception) {
-                // 6. 捕捉任何網路或解析錯誤
                 e.printStackTrace()
-                _uiState.value = RecommendationUiState.Error(e.message ?: "未知的網路錯誤")
+                _uiState.value = RecommendationUiState.Error(e.message ?: "無法生成行程")
             }
         }
     }
+}
+
+/**
+ * 「翻譯函式」：將 UI 層的 `RecommendationForm` 轉換為
+ * 資料層/API 期望的 `TripForm`。
+ * (這個函式不需要 userId，保持不變)
+ */
+private fun RecommendationForm.toTripForm(): TripForm {
+    return TripForm(
+        locations = this.locations,
+        name = this.tripName,
+        totalBudget = this.totalBudget,
+        startDate = this.startDate,
+        endDate = this.endDate,
+        activityStart = this.activityStart,
+        activityEnd = this.activityEnd,
+        transportPreferences = this.transportPreferences,
+        useGmapsRating = this.useGmapsRating,
+        styles = this.styles,
+        avgAge = this.avgAge,
+        visibility = this.visibility,
+        extraNote = this.extraNote,
+        aiDisclaimerChecked = this.aiDisclaimerChecked
+    )
 }

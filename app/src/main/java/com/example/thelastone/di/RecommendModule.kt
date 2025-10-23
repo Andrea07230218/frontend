@@ -21,7 +21,7 @@ object RecommendModule {
      * 您的後端 API 的 Base URL。
      * 對於 Android 模擬器，必須使用 10.0.2.2 來指向您電腦的 localhost。
      */
-    private const val RECOMMEND_BASE_URL = " http://127.0.0.1:8000 "
+    private const val RECOMMEND_BASE_URL = " http://10.0.2.2:8000/ "
 
     @Provides
     @Singleton

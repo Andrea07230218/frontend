@@ -1,7 +1,9 @@
+// 檔案路徑：data/model/Place.kt
 package com.example.thelastone.data.model
 
 import kotlinx.serialization.Serializable
 
+@Serializable // 👈 1. 加上這個標註
 data class Place(
     val placeId: String,
     val name: String,
@@ -9,16 +11,15 @@ data class Place(
     val userRatingsTotal: Int?,
     val address: String?,
     val openingHours: List<String> = emptyList(),
-    val openNow: Boolean? = null,          // ← 新增
-    val openStatusText: String? = null,    // ← 新增
+    val openNow: Boolean? = null,
+    val openStatusText: String? = null,
     val lat: Double,
     val lng: Double,
     val photoUrl: String? = null,
     val miniMapUrl: String? = null
 )
 
-
-// data/model/Place.kt
+@Serializable // 👈 2. 最好也幫這個加上
 data class PlaceDetails(
     val placeId: String,
     val name: String,
@@ -32,11 +33,10 @@ data class PlaceDetails(
     val websiteUri: String? = null,
     val nationalPhoneNumber: String? = null,
     val priceLevel: Int? = null,
-    val openingHours: List<String> = emptyList(), // weekdayDescriptions
+    val openingHours: List<String> = emptyList(),
     val openNow: Boolean? = null,
     val openStatusText: String? = null
 )
-
 
 @Serializable
 data class PlaceLite(
@@ -48,11 +48,12 @@ data class PlaceLite(
     val rating: Double? = null,
     val userRatingsTotal: Int? = null,
     val photoUrl: String? = null,
-    val openingHours: List<String> = emptyList(), // 👈 新增
-    val openNow: Boolean? = null,                  // 👈 可選（若要顯示「營業中」）
-    val openStatusText: String? = null            // ✅ 算好的文案：「營業中 · 至 21:00」
+    val openingHours: List<String> = emptyList(),
+    val openNow: Boolean? = null,
+    val openStatusText: String? = null
 )
 
+// (Functions remain the same)
 fun Place.toLite() = PlaceLite(
     placeId = placeId,
     name = name,
@@ -63,7 +64,7 @@ fun Place.toLite() = PlaceLite(
     userRatingsTotal = userRatingsTotal,
     photoUrl = photoUrl,
     openingHours = openingHours,
-    openNow = null,             // 如果此時沒有，就先 null
+    openNow = null,
     openStatusText = null
 )
 

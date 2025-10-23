@@ -4,7 +4,18 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 // --- 請求 (Request) 資料模型 ---
+// --- 🔽🔽 加上這個新的 Wrapper data class 🔽🔽 ---
+/**
+ * 代表發送給 /recommend API 的請求 Body 結構
+ */
+@Serializable
+data class ApiRecommendRequest(
+    @SerialName("user_id") // 確保 JSON key 和 Python 一致
+    val userId: String,
 
+    val form: RecommendationForm // 把 API 專用模型包在這裡
+)
+// --- 🔼🔼 ---
 @Serializable
 data class RecommendationForm(
     @SerialName("locations") val locations: List<String>,
@@ -45,4 +56,3 @@ data class RecommendationResponse(
     @SerialName("error") val error: Boolean,
     @SerialName("error_message") val errorMessage: String? = null
 )
-

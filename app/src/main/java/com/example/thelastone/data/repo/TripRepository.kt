@@ -12,6 +12,7 @@ data class TripStats(
 )
 
 interface TripRepository {
+    suspend fun createTrip(form: TripForm, userId: String): Trip
     suspend fun createTrip(form: TripForm): Trip
     suspend fun saveTrip(trip: Trip): Trip
 

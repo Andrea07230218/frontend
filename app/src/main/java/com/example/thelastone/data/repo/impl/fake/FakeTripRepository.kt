@@ -1,115 +1,101 @@
-package com.example.thelastone.data.repo.impl.fake
+// 檔案路徑：data/repo/impl/FakeTripRepository.kt (或類似路徑)
+package com.example.thelastone.data.repo.impl.fake// (請確認 package)
 
 import com.example.thelastone.data.model.Activity
+import com.example.thelastone.data.model.AgeBand // 👈 確保 import 正確
 import com.example.thelastone.data.model.Trip
 import com.example.thelastone.data.model.TripForm
-import com.example.thelastone.data.model.TripVisibility
 import com.example.thelastone.data.repo.TripRepository
 import com.example.thelastone.data.repo.TripStats
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import javax.inject.Inject
+import javax.inject.Singleton
 
-/**
- * TripRepository 的一個假實作 (Fake Implementation)，主要用於 UI 預覽和單元測試。
- * 它在記憶體中模擬資料庫的行為，不會進行任何真實的網路或資料庫操作。
- */
+@Singleton
 class FakeTripRepository @Inject constructor() : TripRepository {
 
     private var formForPreview: TripForm? = null
-    private val fakeTrips = mutableListOf<Trip>()
 
-    override suspend fun createTrip(form: TripForm): Trip {
-        // 為了測試，回傳一個固定的假 Trip
+    /**
+     * ✅ 已修正簽名：加入 userId 參數
+     */
+    override suspend fun createTrip(form: TripForm, userId: String): Trip {
+        delay(1500)
         return Trip(
-            id = "fake_trip_id_${System.currentTimeMillis()}",
-            createdBy = "fake_user",
-            name = form.name,
-            locations = form.locations,
-            totalBudget = form.totalBudget,
-            startDate = form.startDate,
-            endDate = form.endDate,
-            activityStart = form.activityStart,
-            activityEnd = form.activityEnd,
-            avgAge = form.avgAge,
-            transportPreferences = form.transportPreferences,
-            useGmapsRating = form.useGmapsRating,
-            styles = form.styles,
-            visibility = form.visibility,
-            members = emptyList(),
-            days = emptyList()
+            id = "fake_${System.currentTimeMillis()}", createdBy = userId,
+            name = form.name.ifBlank { "未命名假行程" }, locations = form.locations,
+            totalBudget = form.totalBudget, startDate = form.startDate, endDate = form.endDate,
+            activityStart = form.activityStart, activityEnd = form.activityEnd, avgAge = form.avgAge,
+            transportPreferences = form.transportPreferences, useGmapsRating = form.useGmapsRating,
+            styles = form.styles, visibility = form.visibility,
+            members = emptyList(), days = emptyList()
         )
     }
 
     override suspend fun saveTrip(trip: Trip): Trip {
-        // 模擬儲存行為：將 trip 加入到記憶體的列表中
-        fakeTrips.removeAll { it.id == trip.id } // 如果已存在則先移除舊的
-        fakeTrips.add(trip)
-        return trip
+        delay(500)
+        println("FakeTripRepository: Pretending to save trip ${trip.id}")
+        return trip // 回傳 trip
     }
 
-    // 🔽 [ [ [ 以下是為了遵守完整合約而新增的假實作 ] ] ] 🔽
-
     override suspend fun getMyTrips(): List<Trip> {
-        return fakeTrips
+        delay(1000)
+        return emptyList() // 回傳空列表
     }
 
     override fun observeMyTrips(): Flow<List<Trip>> {
-        return flowOf(fakeTrips)
+        return flowOf(emptyList()) // 回傳空的 Flow
     }
 
     override suspend fun getPublicTrips(): List<Trip> {
-        return fakeTrips.filter { it.visibility == TripVisibility.PUBLIC }
+        delay(1000)
+        return emptyList() // 回傳空列表
     }
 
     override fun observePublicTrips(): Flow<List<Trip>> {
-        return flowOf(fakeTrips.filter { it.visibility == TripVisibility.PUBLIC })
+        return flowOf(emptyList()) // 回傳空的 Flow
+    }
+
+    // 輔助函式，產生一個基礎的假 Trip
+    private fun createFakeTrip(tripId: String): Trip {
+        return Trip(
+            id = tripId, createdBy = "fake_user", name = "假行程 $tripId",
+            locations = "假地點", startDate = "2025-01-01", endDate = "2025-01-02",
+            avgAge = AgeBand.A26_35, transportPreferences = listOf("WALKING"),
+            useGmapsRating = false, styles = listOf("FOODIE"), totalBudget = 1000,
+            activityStart = "09:00", activityEnd = "21:00",
+            visibility = com.example.thelastone.data.model.TripVisibility.PRIVATE,
+            members = emptyList(), days = emptyList()
+        )
     }
 
     override suspend fun getTripDetail(tripId: String): Trip {
-        return fakeTrips.first { it.id == tripId }
+        delay(500)
+        return createFakeTrip(tripId) // 回傳假 Trip
     }
 
     override fun observeTripDetail(tripId: String): Flow<Trip> {
-        return flowOf(fakeTrips.first { it.id == tripId })
+        return flowOf(createFakeTrip(tripId)) // 回傳包含假 Trip 的 Flow
     }
 
-    override suspend fun addActivity(tripId: String, dayIndex: Int, activity: Activity) {
-        // 假實作：在測試中可以忽略此操作
-    }
-
-    override suspend fun updateActivity(tripId: String, dayIndex: Int, activityIndex: Int, updated: Activity) {
-        // 假實作：在測試中可以忽略此操作
-    }
-
-    override suspend fun removeActivity(tripId: String, dayIndex: Int, activityIndex: Int) {
-        // 假實作：在測試中可以忽略此操作
-    }
-
-    override suspend fun deleteTrip(tripId: String) {
-        fakeTrips.removeAll { it.id == tripId }
-    }
-
-
-
-    override suspend fun addMembers(tripId: String, userIds: List<String>) {
-        // 假實作：在測試中可以忽略此操作
-    }
+    override suspend fun addActivity(tripId: String, dayIndex: Int, activity: Activity) { delay(100) }
+    override suspend fun updateActivity(tripId: String, dayIndex: Int, activityIndex: Int, updated: Activity) { delay(100) }
+    override suspend fun removeActivity(tripId: String, dayIndex: Int, activityIndex: Int) { delay(100) }
+    override suspend fun deleteTrip(tripId: String) { delay(500) }
+    override suspend fun addMembers(tripId: String, userIds: List<String>) { delay(200) }
 
     override suspend fun getTripStatsFor(userId: String): TripStats {
-        // 假實作：回傳固定的假統計資料
-        return TripStats(created = 0, participating = 0)
+        delay(300)
+        return TripStats(created = 5, participating = 2) // 回傳假資料
     }
 
-    // --- 我們為 AI 行程生成新增的功能 ---
     override fun setTripFormForPreview(form: TripForm) {
         this.formForPreview = form
     }
 
     override fun getTripFormForPreview(): TripForm? {
-        val form = this.formForPreview
-        this.formForPreview = null
-        return form
+        return this.formForPreview
     }
 }
-
