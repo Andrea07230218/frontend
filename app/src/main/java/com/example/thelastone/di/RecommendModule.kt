@@ -11,6 +11,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
+import java.util.concurrent.TimeUnit // 👈 1. 加入 Time Unit 的 import
 import javax.inject.Singleton
 
 @Module
@@ -20,8 +21,11 @@ object RecommendModule {
     /**
      * 您的後端 API 的 Base URL。
      * 對於 Android 模擬器，必須使用 10.0.2.2 來指向您電腦的 localhost。
+     * ‼️ 已移除 URL 前後的空格 ‼️
      */
-    private const val RECOMMEND_BASE_URL = " http://10.0.2.2:8000/ "
+    // 🔽🔽 2. 修正：移除 URL 前後的空格 🔽🔽
+    private const val RECOMMEND_BASE_URL = "http://10.0.2.2:8000/"
+    // 🔼🔼
 
     @Provides
     @Singleton
@@ -33,6 +37,11 @@ object RecommendModule {
                     level = HttpLoggingInterceptor.Level.BODY
                 }
             )
+            // 🔽🔽 3. 加入這三行，把 Timeout 延長到 60 秒 🔽🔽
+            .connectTimeout(600, TimeUnit.SECONDS)
+            .readTimeout(600, TimeUnit.SECONDS)
+            .writeTimeout(600, TimeUnit.SECONDS)
+            // 🔼🔼
             .build()
     }
 
@@ -45,8 +54,8 @@ object RecommendModule {
     ): Retrofit {
         val contentType = "application/json".toMediaType()
         return Retrofit.Builder()
-            .baseUrl(RECOMMEND_BASE_URL)
-            .client(okHttpClient)
+            .baseUrl(RECOMMEND_BASE_URL) // 👈 會使用修正後的 URL
+            .client(okHttpClient)        // 👈 會使用修正後的 OkHttpClient
             .addConverterFactory(json.asConverterFactory(contentType))
             .build()
     }
@@ -59,4 +68,3 @@ object RecommendModule {
         return retrofit.create(ApiService::class.java)
     }
 }
-

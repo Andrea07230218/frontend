@@ -1,3 +1,4 @@
+// 檔案路徑：ui/screens/TripComp.kt
 package com.example.thelastone.ui.screens
 
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.itemsIndexed // 👈 確保 Import
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AssistChip
@@ -48,12 +50,39 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.example.thelastone.data.model.Activity
 import com.example.thelastone.data.model.AgeBand
+import com.example.thelastone.data.model.DaySchedule // 👈 確保 Import
+import com.example.thelastone.data.model.Slot // 👈 確保 Import
 import com.example.thelastone.data.model.Trip
 import com.example.thelastone.data.model.User
 import com.example.thelastone.ui.screens.comp.Avatar
 import com.example.thelastone.ui.state.EmptyState
 import kotlinx.coroutines.launch
+import java.time.LocalDate // 👈 確保 Import
 import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeParseException // 👈 確保 Import
+
+/**
+ * ✅ 新增：安全的日期格式化函式
+ * 處理可為空的日期 (String?)
+ */
+private fun formatDateRange(start: String?, end: String?): String {
+    // 1. 檢查傳入的值是否為 null 或空白
+    if (start.isNullOrBlank() || end.isNullOrBlank()) {
+        return "未指定日期" // 或者回傳 "" (空字串)
+    }
+
+    return try {
+        // 2. 嘗試解析
+        val inFmt = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+        val outFmt = DateTimeFormatter.ofPattern("yyyy.MM.dd")
+        val s = LocalDate.parse(start, inFmt).format(outFmt)
+        val e = LocalDate.parse(end, inFmt).format(outFmt)
+        "$s – $e"
+    } catch (e: DateTimeParseException) {
+        // 3. 如果解析失敗，直接回傳原始文字 (現在是安全的)
+        "$start – $end"
+    }
+}
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -68,22 +97,15 @@ fun TripInfoCard(
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(            // ← 卡片（非 Elevated）
+        colors = CardDefaults.cardColors(
             containerColor = container,
             contentColor   = onContainer
         ),
-        elevation = CardDefaults.cardElevation(      // ← 無陰影
-            defaultElevation  = 0.dp,
-            pressedElevation  = 0.dp,
-            focusedElevation  = 0.dp,
-            hoveredElevation  = 0.dp,
-            draggedElevation  = 0.dp,
-            disabledElevation = 0.dp
-        )
+        elevation = CardDefaults.cardElevation(0.dp)
     ) {
         Column(
             Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)   // ← 大節奏 12dp
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text(
                 trip.name,
@@ -92,9 +114,9 @@ fun TripInfoCard(
                 overflow = TextOverflow.Ellipsis
             )
 
-            // 次要資訊：用 onSurfaceVariant（一致的次要語氣）
+            // ✅ 修正：使用安全的 formatDateRange 函式
             Text(
-                "${trip.startDate} – ${trip.endDate}",
+                text = formatDateRange(trip.startDate, trip.endDate),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -134,8 +156,8 @@ fun CompactTag(text: String, modifier: Modifier = Modifier) {
     ) {
         Text(
             text = text,
-            style = MaterialTheme.typography.labelSmall,     // 小字
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp) // 高度約 24–28dp
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
         )
     }
 }
@@ -145,10 +167,10 @@ private fun MembersSection(
     members: List<User>,
     maxShown: Int = 5
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { // 微節奏 8dp
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
             "Members（${members.size}）",
-            style = MaterialTheme.typography.titleSmall,        // ← 區塊小標
+            style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Row(
@@ -179,10 +201,8 @@ private fun AvatarNameHint(user: User, size: Dp) {
     val scope = rememberCoroutineScope()
 
     Box(
-        modifier = Modifier
-            .semantics { contentDescription = user.name } // a11y：等同 alt
+        modifier = Modifier.semantics { contentDescription = user.name }
     ) {
-        // 頭貼：點一下顯示 1.5 秒
         Box(
             modifier = Modifier
                 .clip(CircleShape)
@@ -197,7 +217,6 @@ private fun AvatarNameHint(user: User, size: Dp) {
             Avatar(imageUrl = user.avatarUrl, size = size)
         }
 
-        // 簡易 tooltip：浮在頭貼上方一點點
         if (show) {
             Box(
                 modifier = Modifier
@@ -230,17 +249,24 @@ private fun AgeBand.label(): String = when (this) {
     AgeBand.A56_PLUS -> "56以上"
 }
 
+/**
+ * ✅ 修正：ActivityRow 現在接收新的 Activity (Place) 模型
+ */
 @Composable
-private fun ActivityRow(activity: Activity, onClick: () -> Unit) {
+private fun ActivityRow(
+    activity: Activity,
+    slotLabel: String, // 👈 傳入 "上午", "中午" 等
+    onClick: () -> Unit
+) {
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.secondaryContainer,     // ← 柔和底色
-            contentColor   = MaterialTheme.colorScheme.onSecondaryContainer    // ← 預設文字/圖示色
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            contentColor   = MaterialTheme.colorScheme.onSecondaryContainer
         ),
-        elevation = CardDefaults.cardElevation(0.dp)   // ← 無陰影更柔和
+        elevation = CardDefaults.cardElevation(0.dp)
     ) {
         Row(
             modifier = Modifier
@@ -250,19 +276,22 @@ private fun ActivityRow(activity: Activity, onClick: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             val sub = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.80f)
-            val time = listOfNotNull(activity.startTime, activity.endTime)
-                .takeIf { it.isNotEmpty() }?.joinToString(" ~ ") ?: "未設定時間"
+
+            // ✅ 修正：顯示 stayMinutes 或 slotLabel
+            val time = activity.stayMinutes?.let { "預計停留 $it 分鐘" } ?: slotLabel
+
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Text(activity.place.name, style = MaterialTheme.typography.titleMedium)
+                Text(activity.name, style = MaterialTheme.typography.titleMedium) // 👈 讀取 activity.name
                 Text(time, style = MaterialTheme.typography.bodyMedium, color = sub)
             }
 
-            if (!activity.place.photoUrl.isNullOrBlank()) {
+            // (photoUrl 目前在 Trip.kt 中是 null，所以這裡不會顯示)
+            if (!activity.photoUrl.isNullOrBlank()) {
                 AsyncImage(
-                    model = activity.place.photoUrl,
+                    model = activity.photoUrl,
                     contentDescription = null,
                     modifier = Modifier
                         .size(72.dp)
@@ -275,15 +304,24 @@ private fun ActivityRow(activity: Activity, onClick: () -> Unit) {
 }
 
 
+/**
+ * ✅ 核心修正：
+ * 1. onActivityClick 參數更新
+ * 2. 檢查 day.slots.isEmpty()
+ * 3. 遍歷 day.slots 和 slot.places
+ */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 fun LazyListScope.dayTabsAndActivities(
     trip: Trip,
     selected: Int,
     onSelect: (Int) -> Unit,
-    onActivityClick: (dayIndex: Int, activityIndex: Int, activity: Activity) -> Unit
+    // 🔽🔽 ‼️ 1. 修改 onActivityClick 的參數 ‼️ 🔽🔽
+    onActivityClick: (dayIndex: Int, slotIndex: Int, activityIndex: Int, activity: Activity) -> Unit
 ) {
     val monthDayFormatter = DateTimeFormatter.ofPattern("MM-dd")
     val isoFormatter = DateTimeFormatter.ISO_LOCAL_DATE
+
+    // --- TabRow (保持不變) ---
     stickyHeader {
         ScrollableTabRow(
             selectedTabIndex = selected,
@@ -297,12 +335,11 @@ fun LazyListScope.dayTabsAndActivities(
             }
         ) {
             trip.days.forEachIndexed { i, d ->
-                // 將 d.date 轉成 LocalDate 後再格式化（兼容 String / LocalDate / LocalDateTime）
-                val monthDayText = when (val date = d.date) {
-                    is java.time.LocalDate -> date.format(monthDayFormatter)
-                    is java.time.LocalDateTime -> date.toLocalDate().format(monthDayFormatter)
-                    is String -> java.time.LocalDate.parse(date, isoFormatter).format(monthDayFormatter)
-                    else -> d.date.toString() // 萬一是奇怪型別，至少不會崩
+                // 修正：更安全的日期解析
+                val monthDayText = try {
+                    LocalDate.parse(d.date, isoFormatter).format(monthDayFormatter)
+                } catch (e: Exception) {
+                    d.date // 回退
                 }
 
                 Tab(
@@ -321,8 +358,13 @@ fun LazyListScope.dayTabsAndActivities(
             }
         }
     }
+
+    // --- 內容 (✅ 修正) ---
     val day = trip.days.getOrNull(selected)
-    if (day == null || day.activities.isEmpty()) {
+
+    // 🔽🔽 ‼️ 2. 修正：檢查 day.slots 是否為空 ‼️ 🔽🔽
+    if (day == null || day.slots.isEmpty()) {
+        // 🔼🔼
         item {
             EmptyState(
                 modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
@@ -331,9 +373,26 @@ fun LazyListScope.dayTabsAndActivities(
             )
         }
     } else {
-        items(day.activities.size, key = { idx -> day.activities[idx].id }) { idx ->
-            val act = day.activities[idx]
-            ActivityRow(activity = act) { onActivityClick(selected, idx, act) }
+        // ✅ 3. 成功：遍歷 Slots 和 Places
+        day.slots.forEachIndexed { slotIndex, slot ->
+            // (可選) 顯示 Slot 標題，例如 "上午 09:00 - 12:00"
+            if (slot.label.isNotBlank()) {
+                item {
+                    Text(
+                        text = "${slot.label} (${slot.window.joinToString(" - ")})",
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+                    )
+                }
+            }
+
+            // 顯示這個 Slot 裡的所有 activities (places)
+            itemsIndexed(slot.places, key = { _, act -> act.id }) { activityIndex, act ->
+                ActivityRow(activity = act, slotLabel = slot.label) {
+                    // 傳遞新的索引
+                    onActivityClick(selected, slotIndex, activityIndex, act)
+                }
+            }
         }
     }
 }

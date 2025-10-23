@@ -1,3 +1,4 @@
+// 檔案路徑：ui/screens/comp/TripCard.kt
 package com.example.thelastone.ui.screens.comp
 
 import androidx.compose.foundation.layout.Column
@@ -30,7 +31,7 @@ import java.time.format.DateTimeFormatter
 fun TripCard(
     trip: Trip,
     onClick: () -> Unit,
-    imageUrl: String? = null,   // 由呼叫端提供封面圖（可放第一天景點照等）
+    imageUrl: String? = null,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -38,7 +39,7 @@ fun TripCard(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color.Transparent // 背景透明
+            containerColor = Color.Transparent
         )
     ) {
         Row(
@@ -76,6 +77,7 @@ fun TripCard(
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
+                    // ✅ 這裡的呼叫現在是安全的，因為 trip.startDate 是 String?
                     text = formatDateRange(trip.startDate, trip.endDate),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -87,14 +89,26 @@ fun TripCard(
     }
 }
 
-private fun formatDateRange(start: String, end: String): String {
+/**
+ * 格式化日期範圍
+ * ✅ 修正：函式參數改為可為空 (nullable) 的 String?
+ */
+// 🔽🔽 1. 將參數型別改為 String? 🔽🔽
+private fun formatDateRange(start: String?, end: String?): String {
+    // 2. 檢查傳入的值是否為 null 或空白
+    if (start.isNullOrBlank() || end.isNullOrBlank()) {
+        return "未指定日期" // 或者回傳 "" (空字串)
+    }
+
     return try {
+        // 3. 嘗試解析
         val inFmt = DateTimeFormatter.ofPattern("yyyy-MM-dd")
         val outFmt = DateTimeFormatter.ofPattern("yyyy.MM.dd")
         val s = LocalDate.parse(start, inFmt).format(outFmt)
         val e = LocalDate.parse(end, inFmt).format(outFmt)
         "$s – $e"
     } catch (_: Exception) {
+        // 4. 如果解析失敗，直接回傳原始文字 (現在是安全的)
         "$start – $end"
     }
 }

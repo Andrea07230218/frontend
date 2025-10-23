@@ -393,8 +393,13 @@ fun CreateTripFormScreen(
             onClick = {
                 submitted = true
                 if (allValid) {
-                    viewModel.generatePreview()
-                    onPreview()
+                    // 1. 取得 userId (你需要換成真實的來源)
+                    val currentUserId = "Shan" // ‼️ TODO: Replace with actual user ID ‼️
+
+                    // 2. 呼叫 ViewModel 函式時傳入 userId
+                    viewModel.generatePreview(currentUserId) // 👈 Pass userId here
+
+                    onPreview() // 觸發導航或其他 UI 事件
                 }
             },
             modifier = Modifier.fillMaxWidth().padding(16.dp)

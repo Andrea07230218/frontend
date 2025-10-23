@@ -1,10 +1,11 @@
-// 檔案路徑：data/repo/impl/FakeTripRepository.kt (或類似路徑)
-package com.example.thelastone.data.repo.impl.fake// (請確認 package)
+// 檔案路徑：data/repo/impl/fake/FakeTripRepository.kt
+package com.example.thelastone.data.repo.impl.fake // 👈 根據你的資訊，package 是這個
 
 import com.example.thelastone.data.model.Activity
-import com.example.thelastone.data.model.AgeBand // 👈 確保 import 正確
+import com.example.thelastone.data.model.AgeBand
 import com.example.thelastone.data.model.Trip
 import com.example.thelastone.data.model.TripForm
+import com.example.thelastone.data.model.TripVisibility // 👈 補上 Import
 import com.example.thelastone.data.repo.TripRepository
 import com.example.thelastone.data.repo.TripStats
 import kotlinx.coroutines.delay
@@ -23,14 +24,24 @@ class FakeTripRepository @Inject constructor() : TripRepository {
      */
     override suspend fun createTrip(form: TripForm, userId: String): Trip {
         delay(1500)
+        // 使用 form 中的資料來建立假 Trip
         return Trip(
-            id = "fake_${System.currentTimeMillis()}", createdBy = userId,
-            name = form.name.ifBlank { "未命名假行程" }, locations = form.locations,
-            totalBudget = form.totalBudget, startDate = form.startDate, endDate = form.endDate,
-            activityStart = form.activityStart, activityEnd = form.activityEnd, avgAge = form.avgAge,
-            transportPreferences = form.transportPreferences, useGmapsRating = form.useGmapsRating,
-            styles = form.styles, visibility = form.visibility,
-            members = emptyList(), days = emptyList()
+            id = "fake_${System.currentTimeMillis()}",
+            createdBy = userId,
+            name = form.name.ifBlank { "未命名假行程" },
+            locations = form.locations,
+            totalBudget = form.totalBudget,
+            startDate = form.startDate,
+            endDate = form.endDate,
+            activityStart = form.activityStart,
+            activityEnd = form.activityEnd,
+            avgAge = form.avgAge,
+            transportPreferences = form.transportPreferences,
+            useGmapsRating = form.useGmapsRating,
+            styles = form.styles,
+            visibility = form.visibility,
+            members = emptyList(), // 假資料
+            days = emptyList()     // 假資料
         )
     }
 
@@ -66,7 +77,7 @@ class FakeTripRepository @Inject constructor() : TripRepository {
             avgAge = AgeBand.A26_35, transportPreferences = listOf("WALKING"),
             useGmapsRating = false, styles = listOf("FOODIE"), totalBudget = 1000,
             activityStart = "09:00", activityEnd = "21:00",
-            visibility = com.example.thelastone.data.model.TripVisibility.PRIVATE,
+            visibility = TripVisibility.PRIVATE, // 使用 import 的 TripVisibility
             members = emptyList(), days = emptyList()
         )
     }
@@ -80,12 +91,14 @@ class FakeTripRepository @Inject constructor() : TripRepository {
         return flowOf(createFakeTrip(tripId)) // 回傳包含假 Trip 的 Flow
     }
 
+    // --- 不需要回傳值的函式 ---
     override suspend fun addActivity(tripId: String, dayIndex: Int, activity: Activity) { delay(100) }
     override suspend fun updateActivity(tripId: String, dayIndex: Int, activityIndex: Int, updated: Activity) { delay(100) }
     override suspend fun removeActivity(tripId: String, dayIndex: Int, activityIndex: Int) { delay(100) }
     override suspend fun deleteTrip(tripId: String) { delay(500) }
     override suspend fun addMembers(tripId: String, userIds: List<String>) { delay(200) }
 
+    // --- 需要回傳值的函式 ---
     override suspend fun getTripStatsFor(userId: String): TripStats {
         delay(300)
         return TripStats(created = 5, participating = 2) // 回傳假資料

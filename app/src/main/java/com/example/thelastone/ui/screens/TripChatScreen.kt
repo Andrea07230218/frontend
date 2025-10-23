@@ -1,5 +1,7 @@
+// 檔案路徑：ui/screens/TripChatScreen.kt
 package com.example.thelastone.ui.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -25,6 +27,11 @@ import com.example.thelastone.utils.isAtBottom
 import com.example.thelastone.utils.rememberKeyboardOpen
 import com.example.thelastone.vm.ChatUiState
 import com.example.thelastone.vm.TripChatViewModel
+// 🔽🔽 1. 加入 Time/Format Imports 🔽🔽
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeParseException
+// 🔼🔼
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -39,6 +46,7 @@ fun TripChatScreen(
         is ChatUiState.Error   -> ErrorState(modifier = Modifier.fillMaxSize().padding(padding), message = st.message, onRetry = {})
         is ChatUiState.Data -> {
             if (st.showTripSheet) {
+                // ✅ 這裡會呼叫*修正後*的 TripSheet
                 TripSheet(trip = st.trip, onDismiss = { viewModel.toggleTripSheet(false) })
             }
             Column(
@@ -87,6 +95,7 @@ fun TripChatScreen(
     }
 }
 
+// --- MessagesList (保持不變) ---
 @Composable
 private fun MessagesList(
     modifier: Modifier = Modifier,
@@ -226,7 +235,7 @@ private fun MessagesList(
     }
 }
 
-
+// --- SuggestionCard (保持不變) ---
 @Composable
 private fun SuggestionCard(
     place: PlaceLite,
@@ -258,6 +267,7 @@ private fun SuggestionCard(
     }
 }
 
+// --- ChatInputBar (保持不變) ---
 @Composable
 private fun ChatInputBar(
     value: String,
@@ -283,7 +293,9 @@ private fun ChatInputBar(
     }
 }
 
-
+/**
+ * ✅ 修正：TripSheet 現在會讀取新的 Trip 結構
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TripSheet(
@@ -292,6 +304,7 @@ private fun TripSheet(
 ) {
     if (trip == null) return
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState
@@ -299,23 +312,70 @@ private fun TripSheet(
         Column(
             Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .navigationBarsPadding(), // 👈 確保底部有 padding
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(trip.name, style = MaterialTheme.typography.titleLarge)
-            Text("${trip.startDate} ~ ${trip.endDate}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+            // 🔽🔽 2. 修正：使用 formatDateRange 處理可為空的日期 🔽🔽
+            Text(
+                formatDateRange(trip.startDate, trip.endDate), // 👈 使用安全函式
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            // 🔼🔼
 
             Spacer(Modifier.height(8.dp))
+
+            // 🔽🔽 3. 修正：遍歷 day.slots 和 slot.places 🔽🔽
             trip.days.forEachIndexed { idx, day ->
                 Text("Day ${idx + 1} - ${day.date}", style = MaterialTheme.typography.titleSmall)
                 Column(Modifier.fillMaxWidth().padding(start = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    day.activities.forEach { act ->
-                        Text("• ${act.startTime} ~ ${act.endTime}  ${act.place.name}", style = MaterialTheme.typography.bodySmall)
+
+                    // 遍歷 Slots
+                    day.slots.forEach { slot ->
+                        // 顯示 Slot 標題 (例如 "上午 09:00 - 12:00")
+                        Text(
+                            text = "${slot.label} (${slot.window.joinToString(" - ")})",
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        )
+
+                        // 遍歷 Places (Activities)
+                        slot.places.forEach { act ->
+                            // ✅ 修正：使用 act.name (不再有 act.place)
+                            Text(
+                                text = "• ${act.name}", // 👈 顯示地點名稱
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(start = 8.dp)
+                            )
+                        }
                     }
                 }
                 Spacer(Modifier.height(8.dp))
             }
+            // 🔼🔼
             Spacer(Modifier.height(12.dp))
         }
+    }
+}
+
+/**
+ * 🔽🔽 4. 新增：安全的日期格式化函式 (從 TripComp.kt 複製) 🔽🔽
+ */
+private fun formatDateRange(start: String?, end: String?): String {
+    if (start.isNullOrBlank() || end.isNullOrBlank()) {
+        return "未指定日期"
+    }
+    return try {
+        val inFmt = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+        val outFmt = DateTimeFormatter.ofPattern("yyyy.MM.dd")
+        val s = LocalDate.parse(start, inFmt).format(outFmt)
+        val e = LocalDate.parse(end, inFmt).format(outFmt)
+        "$s – $e"
+    } catch (e: DateTimeParseException) {
+        "$start – $end"
     }
 }

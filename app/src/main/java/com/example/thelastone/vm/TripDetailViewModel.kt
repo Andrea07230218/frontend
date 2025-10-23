@@ -1,6 +1,6 @@
+// 檔案路徑：vm/TripDetailViewModel.kt
 package com.example.thelastone.vm
 
-// TripDetailViewModel.kt (檔案頂端或檔尾都可)
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -23,15 +23,14 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+// (LocalTime 和 Formatter 已經不需要了，但保留也無妨)
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 
-private val FMT_HH_MM = DateTimeFormatter.ofPattern("H:mm")
-private fun parseLocalTimeOrNull(t: String?): LocalTime? =
-    try { if (t.isNullOrBlank()) null else LocalTime.parse(t.trim(), FMT_HH_MM) }
-    catch (_: Exception) { null }
-
+// (這兩個 helper 函式已不再需要)
+// private val FMT_HH_MM = DateTimeFormatter.ofPattern("H:mm")
+// private fun parseLocalTimeOrNull(t: String?): LocalTime? = ...
 
 sealed interface TripDetailUiState {
     data object Loading : TripDetailUiState
@@ -49,7 +48,6 @@ class TripDetailViewModel @Inject constructor(
     private val tripId: String = checkNotNull(savedStateHandle["tripId"])
     private val retry = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
-    // 暴露權限給 UI
     private val _perms = MutableStateFlow<TripPerms?>(null)
     val perms: StateFlow<TripPerms?> = _perms
 
@@ -64,7 +62,9 @@ class TripDetailViewModel @Inject constructor(
                         val uid = session.currentUserId
                         _perms.value = trip.computePerms(uid)
                     }
-                    .map<Trip, TripDetailUiState> { TripDetailUiState.Data(it.sortedByStartTime()) }
+                    // 🔽🔽 ‼️ 1. 修正：移除 .sortedByStartTime() ‼️ 🔽🔽
+                    .map<Trip, TripDetailUiState> { TripDetailUiState.Data(it) }
+                    // 🔼🔼
                     .catch { emit(TripDetailUiState.Error(it.message ?: "Load failed")) }
             }
             .stateIn(
@@ -72,23 +72,33 @@ class TripDetailViewModel @Inject constructor(
                 SharingStarted.WhileSubscribed(5_000),
                 TripDetailUiState.Loading
             )
+
+    /**
+     * ‼️ 警告：這個函式 (removeActivity) 也與新的 Slot 結構不相容
+     * 暫時拋出錯誤
+     */
     fun removeActivity(dayIndex: Int, activityIndex: Int) {
         viewModelScope.launch {
-            runCatching { repo.removeActivity(tripId, dayIndex, activityIndex) }
-                .onFailure { /* TODO: snackbar */ }
+            // runCatching { repo.removeActivity(tripId, dayIndex, activityIndex) } // 👈 舊邏輯
+            //    .onFailure { /* TODO: snackbar */ }
+
+            throw NotImplementedError("removeActivity logic needs refactoring for Slot-based model")
         }
     }
 
     fun reload() { retry.tryEmit(Unit) }
 }
 
-// TripDetailViewModel.kt
+// 🔽🔽 ‼️ 2. 刪除 (或註解掉) 整個 sortedByStartTime 函式 ‼️ 🔽🔽
+/*
 private fun Trip.sortedByStartTime(): Trip = copy(
     days = days.map { day ->
         day.copy(
-            activities = day.activities.sortedWith(
+            activities = day.activities.sortedWith( // 👈 錯誤點
                 compareBy<Activity> { parseLocalTimeOrNull(it.startTime) ?: LocalTime.MAX }
             )
         )
     }
 )
+*/
+// 🔼🔼

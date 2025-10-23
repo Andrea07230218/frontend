@@ -30,7 +30,9 @@ class TripRepositoryImpl @Inject constructor(
     /**
      * ✅ 已修正簽名：加入 userId 參數
      */
+    // 🔽🔽 ‼️ 確認這一行有 userId: String ‼️ 🔽🔽
     override suspend fun createTrip(form: TripForm, userId: String): Trip {
+        // 🔼🔼
         return withContext(Dispatchers.IO) {
             val apiForm: RecommendationForm = form.toApiRequestForm(excludeTerms = emptyList())
             val requestWrapper = ApiRecommendRequest(userId = userId, form = apiForm)

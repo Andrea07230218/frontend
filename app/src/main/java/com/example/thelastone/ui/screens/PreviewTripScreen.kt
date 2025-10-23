@@ -1,4 +1,4 @@
-// PreviewTripScreen.kt
+// 檔案路徑：ui/screens/PreviewTripScreen.kt
 package com.example.thelastone.ui.screens
 
 import android.widget.Toast
@@ -60,7 +60,14 @@ fun PreviewTripScreen(
     when (val p = preview) {
         TripFormViewModel.PreviewUiState.Idle,
         TripFormViewModel.PreviewUiState.Loading -> {
-            LoadingState(modifier = Modifier.padding(padding))
+            // ✅ 修正：Idle 狀態不應該顯示 Loading
+            // 這裡假設 ViewModel 在呼叫 generatePreview 時會切換到 Loading
+            if (p is TripFormViewModel.PreviewUiState.Loading) {
+                LoadingState(modifier = Modifier.padding(padding))
+            } else {
+                // Idle 狀態，可能顯示一個提示或保持空白
+                // LoadingState(modifier = Modifier.padding(padding)) // 暫時保留
+            }
         }
         is TripFormViewModel.PreviewUiState.Error -> {
             ErrorState(
@@ -76,7 +83,7 @@ fun PreviewTripScreen(
             var selected by rememberSaveable { mutableIntStateOf(0) }
 
             Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-                // 內容區（與 CreateTripFormScreen 同姿勢）
+                // 內容區
                 LazyColumn(
                     modifier = Modifier
                         .weight(1f)
@@ -84,19 +91,25 @@ fun PreviewTripScreen(
                         .padding(horizontal = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    item { TripInfoCard(trip) }
+                    item { TripInfoCard(trip) } // 👈 標頭 (已正確顯示)
+
+                    // 🔽🔽 ‼️ 修正 (1)：`onActivityClick` 接收 4 個參數 ‼️ 🔽🔽
                     dayTabsAndActivities(
                         trip = trip,
                         selected = selected,
                         onSelect = { selected = it },
-                        onActivityClick = { _, _, act ->
-                            Toast.makeText(context, "預覽中：${act.place.name}", Toast.LENGTH_SHORT).show()
+                        onActivityClick = { dayIdx, slotIdx, actIdx, act -> // 👈 接收 4 個參數
+                            // 🔽🔽 ‼️ 修正 (2)：使用 `act.name` 而不是 `act.place.name` ‼️ 🔽🔽
+                            Toast.makeText(context, "預覽中：${act.name}", Toast.LENGTH_SHORT).show()
+                            // 🔼🔼
                         }
                     )
+                    // 🔼🔼
+
                     item { Spacer(Modifier.height(8.dp)) }
                 }
 
-                // 底部動作列（與 CreateTripFormScreen 的底部按鈕列一致的排版）
+                // 底部動作列
                 val saving = save is TripFormViewModel.SaveUiState.Loading
                 Row(
                     modifier = Modifier

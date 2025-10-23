@@ -1,3 +1,4 @@
+// 檔案路徑：data/repo/TripRepository.kt
 package com.example.thelastone.data.repo
 
 import com.example.thelastone.data.model.Activity
@@ -5,15 +6,17 @@ import com.example.thelastone.data.model.Trip
 import com.example.thelastone.data.model.TripForm
 import kotlinx.coroutines.flow.Flow
 
-// 🔽 [ [ [ 關鍵修正：TripStats 的定義必須在這裡 ] ] ] 🔽
 data class TripStats(
     val created: Int,
     val participating: Int
 )
 
 interface TripRepository {
+    // 🔽🔽 ‼️ 只保留有 userId 的這一個 ‼️ 🔽🔽
     suspend fun createTrip(form: TripForm, userId: String): Trip
-    suspend fun createTrip(form: TripForm): Trip
+    // suspend fun createTrip(form: TripForm): Trip // 👈 刪除這一行
+    // 🔼🔼
+
     suspend fun saveTrip(trip: Trip): Trip
 
     suspend fun getMyTrips(): List<Trip>
@@ -32,14 +35,6 @@ interface TripRepository {
 
     suspend fun getTripStatsFor(userId: String): TripStats
 
-    /**
-     * 在導航到預覽畫面之前，暫時儲存使用者填寫的表單。
-     */
     fun setTripFormForPreview(form: TripForm)
-
-    /**
-     * 從預覽畫面讀取之前暫存的表單。
-     */
     fun getTripFormForPreview(): TripForm?
 }
-

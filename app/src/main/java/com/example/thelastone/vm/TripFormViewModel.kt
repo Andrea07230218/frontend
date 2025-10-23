@@ -1,3 +1,4 @@
+// 檔案路徑：vm/TripFormViewModel.kt
 package com.example.thelastone.vm
 
 import androidx.lifecycle.ViewModel
@@ -10,6 +11,7 @@ import com.example.thelastone.data.repo.TripRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -19,13 +21,13 @@ import javax.inject.Inject
 
 @HiltViewModel
 class TripFormViewModel @Inject constructor(
-    private val repo: TripRepository
+    private val repo: TripRepository // 使用 repo 而不是 tripRepo
 ) : ViewModel() {
     val styleOptions = listOf("自然探索","藝術文青","休閒放鬆","文化歷史","美食巡禮","親子友善", "購物娛樂", "社群打卡")
     val transportOptions = listOf("步行","大眾運輸", "汽車", "機車")
 
     data class Form(
-        val locations: String = "", // ✅ [整合] 1. 加入 locations 欄位
+        val locations: String = "",
         val name: String = "",
         val totalBudget: Int? = null,
         val startDate: String = "",
@@ -46,10 +48,7 @@ class TripFormViewModel @Inject constructor(
 
     // ====== 更新事件 ======
     fun updateName(v: String) = _form.update { it.copy(name = v.take(50)) }
-
-    // ✅ [整合] 2. 加入 locations 的更新函式
     fun updateLocations(v: String) = _form.update { it.copy(locations = v) }
-
     fun updateBudgetText(v: String) {
         val digits = v.filter { it.isDigit() }
         _form.update { it.copy(totalBudget = digits.toIntOrNull()) }
@@ -73,12 +72,10 @@ class TripFormViewModel @Inject constructor(
     fun setAiDisclaimer(v: Boolean) = _form.update { it.copy(aiDisclaimerChecked = v) }
     fun setVisibility(v: TripVisibility) = _form.update { it.copy(visibility = v) }
 
-
-    // ✅ [還原] 3. 加回您原本的 ValidationResult 定義
     data class ValidationResult(
         val ok: Boolean,
         val nameError: String? = null,
-        val locationError: String? = null, // [修改] 加入 locationError
+        val locationError: String? = null,
         val dateError: String? = null,
         val timeError: String? = null
     )
@@ -86,8 +83,6 @@ class TripFormViewModel @Inject constructor(
     private fun validate(f: Form): ValidationResult {
         if (f.name.isBlank()) return ValidationResult(false, nameError = "請輸入旅遊名稱")
         if (f.name.length > 50) return ValidationResult(false, nameError = "名稱最多 50 字")
-
-        // ✅ [整合] 4. 加入 locations 的驗證邏輯
         if (f.locations.isBlank()) return ValidationResult(false, locationError = "請輸入旅遊地點")
 
         val fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd")
@@ -106,14 +101,14 @@ class TripFormViewModel @Inject constructor(
             if (!te.isAfter(ts)) return ValidationResult(false, timeError = "結束時間需晚於開始時間")
         }
 
-        if (!f.aiDisclaimerChecked) {
-            return ValidationResult(false)
-        }
+        // 移除非必要驗證，讓預覽更容易觸發
+        // if (!f.aiDisclaimerChecked) {
+        //     return ValidationResult(false)
+        // }
 
         return ValidationResult(true)
     }
 
-    // ✅ [還原] 5. 加回您原本的 PreviewUiState 和 _preview StateFlow
     sealed interface PreviewUiState {
         data object Idle : PreviewUiState
         data object Loading : PreviewUiState
@@ -123,7 +118,6 @@ class TripFormViewModel @Inject constructor(
     private val _preview = MutableStateFlow<PreviewUiState>(PreviewUiState.Idle)
     val preview: StateFlow<PreviewUiState> = _preview
 
-    // ✅ [還原] 6. 加回您原本的 SaveUiState 和 _save StateFlow
     sealed interface SaveUiState {
         data object Idle : SaveUiState
         data object Loading : SaveUiState
@@ -133,7 +127,10 @@ class TripFormViewModel @Inject constructor(
     private val _save = MutableStateFlow<SaveUiState>(SaveUiState.Idle)
     val save: StateFlow<SaveUiState> = _save
 
-    fun generatePreview() = viewModelScope.launch {
+    /**
+     * ✅ 已加入 userId 參數
+     */
+    fun generatePreview(userId: String) = viewModelScope.launch { // 👈 接收 userId
         val f = _form.value
         val v = validate(f)
         if (!v.ok) {
@@ -143,29 +140,38 @@ class TripFormViewModel @Inject constructor(
         }
         _preview.value = PreviewUiState.Loading
 
-        // ✅ [整合] 7. 呼叫 repo.createTrip 時，傳入我們新增的 locations 欄位
+        // 從 ViewModel 的 Form 狀態建立 TripForm (資料層模型)
+        val tripFormForRepo = TripForm(
+            locations = f.locations,
+            name = f.name,
+            totalBudget = f.totalBudget,
+            startDate = f.startDate,
+            endDate = f.endDate,
+            activityStart = f.activityStart,
+            activityEnd = f.activityEnd,
+            transportPreferences = f.transportPreferences,
+            useGmapsRating = f.useGmapsRating,
+            styles = f.styles,
+            avgAge = f.avgAge,
+            visibility = f.visibility,
+            extraNote = f.extraNote,
+            aiDisclaimerChecked = f.aiDisclaimerChecked
+        )
+
         runCatching {
-            repo.createTrip(
-                TripForm(
-                    locations = f.locations, // 👈 傳入新欄位
-                    name = f.name,
-                    totalBudget = f.totalBudget,
-                    startDate = f.startDate,
-                    endDate = f.endDate,
-                    activityStart = f.activityStart,
-                    activityEnd = f.activityEnd,
-                    transportPreferences = f.transportPreferences,
-                    useGmapsRating = f.useGmapsRating,
-                    styles = f.styles,
-                    avgAge = f.avgAge,
-                    visibility = f.visibility, // 使用 state 中的值
-                    extraNote = f.extraNote,
-                    aiDisclaimerChecked = f.aiDisclaimerChecked
-                )
-            )
+            // 🔽🔽 ‼️ 修改這裡：傳入 tripFormForRepo 和 userId ‼️ 🔽🔽
+            repo.createTrip(tripFormForRepo, userId)
+            // 🔼🔼
         }
-            .onSuccess { _preview.value = PreviewUiState.Data(it) }
-            .onFailure { _preview.value = PreviewUiState.Error(it.message ?: "Preview failed") }
+            .onSuccess { generatedTrip ->
+                _preview.value = PreviewUiState.Data(generatedTrip)
+                // 暫存表單供下個畫面 (例如 StartPreviewViewModel) 使用
+                repo.setTripFormForPreview(tripFormForRepo)
+            }
+            .onFailure { error ->
+                error.printStackTrace() // 印出詳細錯誤
+                _preview.value = PreviewUiState.Error(error.message ?: "Preview failed")
+            }
     }
 
     fun confirmSave() = viewModelScope.launch {
@@ -178,4 +184,3 @@ class TripFormViewModel @Inject constructor(
 
     fun resetSaveState() { _save.value = SaveUiState.Idle }
 }
-
