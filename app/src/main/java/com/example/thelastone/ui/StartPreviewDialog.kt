@@ -7,6 +7,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.thelastone.data.model.StartInfo
 
+//test
 @Composable
 fun StartPreviewDialog(
     info: StartInfo,
