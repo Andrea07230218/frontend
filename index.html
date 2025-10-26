@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>好友系統測試面板</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f0f2f5;
+            color: #1c1e21;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+        }
+        .card {
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+        }
+        h1 { text-align: center; }
+        h2 { border-bottom: 2px solid #e4e6eb; padding-bottom: 5px; }
+        input[type="text"] {
+            width: calc(100% - 20px);
+            padding: 8px 10px;
+            border-radius: 6px;
+            border: 1px solid #dddfe2;
+            margin-bottom: 10px;
+        }
+        button {
+            background-color: #1877f2;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover { background-color: #166fe5; }
+        .log-container {
+            grid-column: 1 / -1; /* 跨越所有欄 */
+        }
+        #api-response {
+            background-color: #282c34;
+            color: #abb2bf;
+            padding: 15px;
+            border-radius: 6px;
+            white-space: pre-wrap; /* 自動換行 */
+            word-wrap: break-word;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>好友系統 API 測試面板</h1>
+
+    <div class="container">
+        
+        <div class="card">
+            <h2>1. 取得所有使用者 (GET /users)</h2>
+            <button id="btn-get-users">執行</button>
+        </div>
+
+        <div class="card">
+            <h2>2. 建立使用者 (POST /users)</h2>
+            <input type="text" id="username" placeholder="Username">
+            <input type="text" id="email" placeholder="Email">
+            <button id="btn-create-user">建立</button>
+        </div>
+        
+        <div class="card">
+            <h2>3. 發送好友邀請 (POST /friend-requests)</h2>
+            <input type="text" id="sender-id" placeholder="你的 ID (Sender ID)">
+            <input type="text" id="receiver-id" placeholder="對方的 ID (Receiver ID)">
+            <button id="btn-send-request">發送邀請</button>
+        </div>
+        
+        <div class="card">
+            <h2>4. 查看使用者資訊 (GET)</h2>
+            <input type="text" id="view-user-id" placeholder="要查詢的使用者 ID">
+            <button id="btn-get-friends">查看好友</button>
+            <button id="btn-get-received">查看收到的邀請</button>
+        </div>
+        
+        <div class="card">
+            <h2>5. 回應好友邀請 (PUT)</h2>
+            <input type="text" id="request-id" placeholder="邀請的 ID (Request ID)">
+            <input type="text" id="action" placeholder="accept 或 reject">
+            <button id="btn-respond">回應</button>
+        </div>
+        
+        <div class="card">
+            <h2>6. 刪除好友 (DELETE)</h2>
+            <input type="text" id="del-user-id" placeholder="你的 ID">
+            <input type="text" id="del-friend-id" placeholder="要刪除的好友 ID">
+            <button id="btn-delete">刪除</button>
+        </div>
+
+        <div class="card log-container">
+            <h2>API 回應 (Log)</h2>
+            <pre id="api-response">點擊按鈕後，伺服器回應會顯示在這裡...</pre>
+        </div>
+
+    </div>
+
+    <script>
+        const API_URL = 'http://127.0.0.1:5000';
+        const responseLog = document.getElementById('api-response');
+
+        // 輔助函數：顯示 API 回應
+        function logResponse(data) {
+            responseLog.textContent = JSON.stringify(data, null, 2);
+        }
+
+        // 輔助函數：顯示錯誤
+        function logError(error) {
+            responseLog.textContent = `錯誤：\n${error.message}\n\n請檢查 Flask 伺服器是否正在運行，以及 CORS 是否已設定。`;
+        }
+
+        // 1. 取得所有使用者
+        document.getElementById('btn-get-users').addEventListener('click', async () => {
+            try {
+                const response = await fetch(`${API_URL}/users`);
+                const data = await response.json();
+                logResponse(data);
+            } catch (error) {
+                logError(error);
+            }
+        });
+
+        // 2. 建立使用者
+        document.getElementById('btn-create-user').addEventListener('click', async () => {
+            const username = document.getElementById('username').value;
+            const email = document.getElementById('email').value;
+            try {
+                const response = await fetch(`${API_URL}/users`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, email })
+                });
+                const data = await response.json();
+                logResponse(data);
+            } catch (error) {
+                logError(error);
+            }
+        });
+
+        // 3. 發送好友邀請
+        document.getElementById('btn-send-request').addEventListener('click', async () => {
+            const sender_id = document.getElementById('sender-id').value;
+            const receiver_id = document.getElementById('receiver-id').value;
+            try {
+                const response = await fetch(`${API_URL}/friend-requests`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sender_id, receiver_id })
+                });
+                const data = await response.json();
+                logResponse(data);
+            } catch (error) {
+                logError(error);
+            }
+        });
+
+        // 4a. 查看好友列表
+        document.getElementById('btn-get-friends').addEventListener('click', async () => {
+            const userId = document.getElementById('view-user-id').value;
+            if (!userId) { logResponse({ error: '請輸入使用者 ID' }); return; }
+            try {
+                const response = await fetch(`${API_URL}/friends/${userId}`);
+                const data = await response.json();
+                logResponse(data);
+            } catch (error) {
+                logError(error);
+            }
+        });
+
+        // 4b. 查看收到的邀請
+        document.getElementById('btn-get-received').addEventListener('click', async () => {
+            const userId = document.getElementById('view-user-id').value;
+            if (!userId) { logResponse({ error: '請輸入使用者 ID' }); return; }
+            try {
+                const response = await fetch(`${API_URL}/friend-requests/received/${userId}`);
+                const data = await response.json();
+                logResponse(data);
+            } catch (error) {
+                logError(error);
+            }
+        });
+        
+        // 5. 回應好友邀請
+        document.getElementById('btn-respond').addEventListener('click', async () => {
+            const requestId = document.getElementById('request-id').value;
+            const action = document.getElementById('action').value;
+            if (!requestId || !action) { logResponse({ error: '請輸入邀請 ID 和 action' }); return; }
+            try {
+                const response = await fetch(`${API_URL}/friend-requests/${requestId}/respond`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action })
+                });
+                const data = await response.json();
+                logResponse(data);
+            } catch (error) {
+                logError(error);
+            }
+        });
+
+        // 6. 刪除好友
+        document.getElementById('btn-delete').addEventListener('click', async () => {
+            const userId = document.getElementById('del-user-id').value;
+            const friendId = document.getElementById('del-friend-id').value;
+            if (!userId || !friendId) { logResponse({ error: '請輸入兩個 ID' }); return; }
+            try {
+                const response = await fetch(`${API_URL}/friends/${userId}/${friendId}`, {
+                    method: 'DELETE'
+                });
+                const data = await response.json();
+                logResponse(data);
+            } catch (error) {
+                logError(error);
+            }
+        });
+    </script>
+</body>
+</html>
