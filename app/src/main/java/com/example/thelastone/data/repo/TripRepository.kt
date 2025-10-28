@@ -1,4 +1,3 @@
-// 檔案路徑：data/repo/TripRepository.kt
 package com.example.thelastone.data.repo
 
 import com.example.thelastone.data.model.Activity
@@ -37,4 +36,10 @@ interface TripRepository {
 
     fun setTripFormForPreview(form: TripForm)
     fun getTripFormForPreview(): TripForm?
+
+    // 🔽🔽 【請新增這一行】 🔽🔽
+    /**
+     * 呼叫 API 取得「通用」推薦行程 (給 Explore 頁用)
+     */
+    suspend fun fetchGeneralRecommendations(): List<Trip>
 }

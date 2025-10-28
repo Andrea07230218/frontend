@@ -16,9 +16,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size // 👈 🔽🔽 1. 補上所有 Layout Imports 🔽🔽
+import androidx.compose.foundation.layout.width
+// 🔼🔼
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Chat // 👈 2. 補上 'Chat' Import
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -50,8 +54,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.thelastone.data.model.Activity // 👈 這是*新*的 Activity
-import com.example.thelastone.data.model.Place    // 👈 1. 確保 Import 舊的 Place 模型
+import com.example.thelastone.data.model.Activity
+import com.example.thelastone.data.model.Place    // 👈 3. 確保 Import 舊的 Place 模型
 import com.example.thelastone.data.model.Trip
 import com.example.thelastone.ui.AlternativesDialog
 import com.example.thelastone.ui.StartPreviewDialog
@@ -71,9 +75,10 @@ fun TripDetailScreen(
     padding: PaddingValues,
     viewModel: TripDetailViewModel = hiltViewModel(),
     startVm: StartFlowViewModel = hiltViewModel(),
+    // ‼️ 你需要從 NavHost 傳入 NavController 才能啟用聊天室按鈕
+    // navController: NavHostController,
     onAddActivity: (tripId: String) -> Unit = {},
     onEditActivity: (tripId: String, activityId: String) -> Unit = { _, _ -> },
-    // (onDeleteActivity 參數已在 9:43 PM 的版本中修正)
     onDeleteActivity: (tripId: String, dayIndex: Int, slotIndex: Int, activityIndex: Int, activity: Activity) -> Unit = { _,_,_,_,_ -> }
 ) {
     val state by viewModel.state.collectAsState()
@@ -91,7 +96,7 @@ fun TripDetailScreen(
         is TripDetailUiState.Data -> {
             val trip = s.trip
             var selected by rememberSaveable { mutableIntStateOf(0) }
-            var selectedActivityId by remember { mutableStateOf<String?>(null) } // (使用 9:43 PM 的版本)
+            var selectedActivityId by remember { mutableStateOf<String?>(null) }
 
             Surface(
                 modifier = Modifier.fillMaxSize(),
@@ -112,29 +117,57 @@ fun TripDetailScreen(
                         ) {
                             item { TripInfoCard(trip) } // 👈 標頭
 
-                            // (dayTabsAndActivities 已在 9:43 PM 修正)
+                            // (聊天室按鈕 - 暫時禁用)
+                            item {
+                                Button(
+                                    onClick = {
+                                        // ‼️ 需要傳入 NavController 才能啟用
+                                        // navController.navigate("chat/${trip.id}")
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    enabled = false
+                                ) {
+                                    Icon(Icons.Default.Chat, null, modifier = Modifier.size(18.dp)) // 👈 修正點
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("開啟聊天室")
+                                }
+                            }
+
+                            // (Tabs 和 Activities)
                             dayTabsAndActivities(
                                 trip = trip,
                                 selected = selected,
                                 onSelect = { selected = it },
                                 onActivityClick = { dayIdx, slotIdx, actIdx, act ->
-                                    selectedActivityId = act.id // 👈 只儲存 Activity ID
+                                    selectedActivityId = act.id
                                 }
                             )
 
                             item { Spacer(Modifier.height(80.dp)) }
                         }
                     }
-                    // ... (FloatingActionButton)
+
+                    if (perms?.canEditTrip == true) {
+                        FloatingActionButton(
+                            onClick = { onAddActivity(trip.id) },
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .navigationBarsPadding()
+                                .padding(16.dp),
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor   = MaterialTheme.colorScheme.onPrimary
+                        ) { Icon(Icons.Filled.Add, null) }
+                    }
                 }
             }
 
-            // (findActivityById 邏輯已在 9:43 PM 修正)
+            // (findActivityById 邏輯)
             val resolved = selectedActivityId?.let { trip.findActivityById(it) }
             if (resolved == null && selectedActivityId != null) {
                 LaunchedEffect(Unit) { selectedActivityId = null }
             }
 
+            // (ActivityBottomSheet 邏輯)
             resolved?.let { location ->
                 val (dayIdx, slotIdx, actIdx, act) = location
 
@@ -151,14 +184,13 @@ fun TripDetailScreen(
                         onDeleteActivity(trip.id, dayIdx, slotIdx, actIdx, act)
                         selectedActivityId = null
                     },
-                    onGoMaps = { openInMaps(context, act) }, // 👈 傳遞 act
-                    // 🔽🔽 ‼️ 2. 修正：使用 toLegacyPlace() 轉接器 ‼️ 🔽🔽
-                    onStart = { startVm.start(act.toLegacyPlace()) } // 👈 修正錯誤 1
-                    // 🔼🔼
+                    onGoMaps = { openInMaps(context, act) },
+                    // ✅ 修正「出發」按鈕
+                    onStart = { startVm.start(act.toLegacyPlace()) }
                 )
             }
 
-            // Start 流程 (已在 9:43 PM 修正)
+            // (Start 流程邏輯)
             when (val st = startState) {
                 StartUiState.Idle -> Unit
                 StartUiState.Loading -> { /* ... (AlertDialog) ... */ }
@@ -198,10 +230,13 @@ fun TripDetailScreen(
     }
 }
 
+/**
+ * Activity 底部彈出視窗
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ActivityBottomSheet(
-    activity: Activity, // (這是新的 Activity 模型)
+    activity: Activity,
     readOnly: Boolean,
     canEdit: Boolean,
     onDismiss: () -> Unit,
@@ -209,10 +244,6 @@ private fun ActivityBottomSheet(
     onDelete: () -> Unit,
     onGoMaps: () -> Unit,
     onStart: () -> Unit
-    // 🔽🔽 ‼️ 3. 修正：移除 note 和 onNoteChange 參數 (錯誤 2) ‼️ 🔽🔽
-    // note: String = "",
-    // onNoteChange: (String) -> Unit = {}
-    // 🔼🔼
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var menuOpen by remember { mutableStateOf(false) }
@@ -235,7 +266,7 @@ private fun ActivityBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = activity.name, // (已修正為讀取 activity.name)
+                    text = activity.name,
                     style = MaterialTheme.typography.titleLarge,
                     modifier = Modifier.weight(1f)
                 )
@@ -270,7 +301,7 @@ private fun ActivityBottomSheet(
                 style = MaterialTheme.typography.bodyMedium
             )
 
-            // 營業時間 (OpeningHoursSection)
+            // 營業時間
             val hasHours = !activity.openingHours.isNullOrEmpty() ||
                     !activity.openStatusText.isNullOrBlank() ||
                     (activity.openNow != null)
@@ -279,13 +310,15 @@ private fun ActivityBottomSheet(
                 val statusText = activity.openStatusText ?: buildOpenStatusTextFallback(
                     activity.openNow, activity.openingHours
                 )
+
+                // ✅ 修正「營業時間怪怪的」：只傳入 statusText
                 OpeningHoursSection(
-                    hours = activity.openingHours,
+                    hours = emptyList(), // 👈 傳入空列表，避免重複顯示
                     statusText = statusText
                 )
             }
 
-            // 評分 (RatingSection)
+            // 評分
             activity.rating?.let { r ->
                 RatingSection(
                     rating = r,
@@ -293,14 +326,13 @@ private fun ActivityBottomSheet(
                 )
             }
 
-            // 🔽🔽 ‼️ 4. 修正：備註區直接讀取 activity.note (helper property) ‼️ 🔽🔽
+            // 備註
             Text(
                 text = activity.note ?: "沒有備註", // 👈 讀取 helper property
                 style = MaterialTheme.typography.bodyMedium
             )
-            // 🔼🔼
 
-            // 行動按鈕列
+            // 按鈕
             Spacer(Modifier.height(12.dp))
             Row(
                 Modifier
@@ -309,18 +341,34 @@ private fun ActivityBottomSheet(
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 OutlinedButton(onClick = onGoMaps, modifier = Modifier.weight(1f)) { Text("Go to Maps") }
-                if (!readOnly) {
-                    Button(onClick = onStart, modifier = Modifier.weight(1f)) { Text("Start") }
+                OutlinedButton(onClick = onStart, modifier = Modifier.weight(1f)) {
+                    Text("Start" )
                 }
             }
         }
     }
 
-    // ... (確認刪除對話框)
+    // 確認刪除對話框
+    if (showConfirm) {
+        AlertDialog(
+            onDismissRequest = { showConfirm = false },
+            title = { Text("確認刪除") },
+            text = { Text("你確定要刪除此活動嗎？此操作無法復原。") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showConfirm = false
+                    onDelete()
+                }) { Text("刪除", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirm = false }) { Text("取消") }
+            }
+        )
+    }
 }
 
 /**
- * ✅ 修正：openInMaps 現在直接從 Activity 讀取 lat/lng/name
+ * 修正：openInMaps 現在直接從 Activity 讀取 lat/lng/name
  */
 private fun openInMaps(context: Context, activity: Activity) {
     val lat = activity.lat
@@ -330,19 +378,18 @@ private fun openInMaps(context: Context, activity: Activity) {
     val uri = Uri.parse("geo:$lat,$lng?q=$lat,$lng(${Uri.encode(name)})")
 
     val intent = Intent(Intent.ACTION_VIEW, uri).apply {
-        setPackage("com.google.android.apps.maps") // 若裝了 Google Maps 就優先用
+        setPackage("com.google.android.apps.maps")
     }
     try {
         context.startActivity(intent)
     } catch (_: ActivityNotFoundException) {
-        // 沒有 Google Maps 時退回一般瀏覽器
         val web = Uri.parse("http://googleusercontent.com/maps/google.com/50{Uri.encode(name)}")
         context.startActivity(Intent(Intent.ACTION_VIEW, web))
     }
 }
 
 /**
- * 用來儲存 Activity 在 Trip 結構中的完整位置
+ * 輔助 data class
  */
 data class ActivityLocation(
     val dayIndex: Int,
@@ -352,9 +399,7 @@ data class ActivityLocation(
 )
 
 /**
- * (新的 findActivity 輔助函式)
- * 遍歷 Trip，根據 Activity ID 找到它
- * @return ActivityLocation (包含所有索引和 Activity 物件)
+ * 輔助函式：用 ID 查找 Activity
  */
 fun Trip.findActivityById(activityId: String): ActivityLocation? {
     days.forEachIndexed { dayIndex, daySchedule ->
@@ -369,24 +414,23 @@ fun Trip.findActivityById(activityId: String): ActivityLocation? {
     return null
 }
 
-// 🔽🔽 ‼️ 5. 新增：'toLegacyPlace' 轉接器函式 ‼️ 🔽🔽
 /**
- * 輔助函式，將新的 Activity (Place-like) 物件
- * 轉換回 StartFlowViewModel 期望的*舊的* Place 模型
+ * ✅ 新增：'toLegacyPlace' 轉接器函式
+ * (將*新* Activity 轉回*舊* Place)
  */
 private fun Activity.toLegacyPlace(): Place {
     return Place(
         placeId = this.id,
         name = this.name,
         rating = this.rating,
-        userRatingsTotal = this.userRatingsTotal, // (來自 helper property)
+        userRatingsTotal = this.userRatingsTotal,
         address = this.address,
-        openingHours = this.openingHours,         // (來自 helper property)
-        openNow = this.openNow,                   // (來自 helper property)
-        openStatusText = this.openStatusText,     // (來自 helper property)
+        openingHours = this.openingHours,
+        openNow = this.openNow,
+        openStatusText = this.openStatusText,
         lat = this.lat,
         lng = this.lng,
-        photoUrl = this.photoUrl,                 // (來自 helper property)
-        miniMapUrl = null // 舊模型中這個欄位似乎沒用到
+        photoUrl = this.photoUrl,
+        miniMapUrl = null
     )
 }

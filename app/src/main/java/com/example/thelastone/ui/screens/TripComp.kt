@@ -15,34 +15,24 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width // 👈 確保 Import
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.itemsIndexed // 👈 確保 Import
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.AssistChipDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ScrollableTabRow
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRowDefaults
-import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.Icons // 👈 確保 Import
+import androidx.compose.material.icons.filled.Schedule // 👈 確保 Import
+import androidx.compose.material.icons.filled.Star // 👈 確保 Import
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color // 👈 確保 Import
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight // 👈 確保 Import
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -60,6 +50,7 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate // 👈 確保 Import
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException // 👈 確保 Import
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 
 /**
  * ✅ 新增：安全的日期格式化函式
@@ -250,7 +241,7 @@ private fun AgeBand.label(): String = when (this) {
 }
 
 /**
- * ✅ 修正：ActivityRow 現在接收新的 Activity (Place) 模型
+ * ✅ 修正：ActivityRow 現在顯示評分、地址、營業時間
  */
 @Composable
 private fun ActivityRow(
@@ -259,7 +250,7 @@ private fun ActivityRow(
     onClick: () -> Unit
 ) {
     Card(
-        onClick = onClick,
+        onClick = onClick, // 👈 點擊卡片會觸發 onActivityClick (在 TripDetailScreen 中)
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(
@@ -275,20 +266,78 @@ private fun ActivityRow(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            val sub = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.80f)
-
-            // ✅ 修正：顯示 stayMinutes 或 slotLabel
-            val time = activity.stayMinutes?.let { "預計停留 $it 分鐘" } ?: slotLabel
+            // 文字顏色
+            val subColor = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
 
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                verticalArrangement = Arrangement.spacedBy(4.dp) // 👈 縮小間距
             ) {
-                Text(activity.name, style = MaterialTheme.typography.titleMedium) // 👈 讀取 activity.name
-                Text(time, style = MaterialTheme.typography.bodyMedium, color = sub)
+                // 1. 景點名稱 (保持不變)
+                Text(activity.name, style = MaterialTheme.typography.titleMedium)
+
+                // 2. 顯示停留時間 (保持不變)
+                val time = activity.stayMinutes?.let { "預計停留 $it 分鐘" } ?: slotLabel
+                Text(time, style = MaterialTheme.typography.bodyMedium, color = subColor)
+
+                // 🔽🔽 3. ‼️ 加入評分 (來自 Logcat: "rating": 4.4, "reviews": 4234) ‼️ 🔽🔽
+                activity.rating?.let { rating ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Filled.Star,
+                            contentDescription = "評分",
+                            modifier = Modifier.size(16.dp),
+                            tint = Color(0xFFFFC107) // 金色
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            // 顯示評分和評論數 (來自 activity.reviews)
+                            text = "$rating (${activity.reviews ?: 0} 則評論)",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Medium,
+                            color = subColor
+                        )
+                    }
+                }
+                // 🔼🔼
+
+                // 🔽🔽 4. ‼️ 加入地址 (來自 Logcat: "address": "...") ‼️ 🔽🔽
+                activity.address?.let { address ->
+                    Text(
+                        text = address,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = subColor,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                // 🔼🔼
+
+                // 🔽🔽 5. ‼️ 加入營業時間 (來自 Logcat: "open_text": "09:00–17:00") ‼️ 🔽🔽
+                activity.openText?.let { openText ->
+                    if (openText != "未提供") { // "未提供" 就不用顯示了
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Schedule,
+                                contentDescription = "營業時間",
+                                modifier = Modifier.size(16.dp),
+                                tint = subColor
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = openText,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = subColor,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+                // 🔼🔼
             }
 
-            // (photoUrl 目前在 Trip.kt 中是 null，所以這裡不會顯示)
+            // (相片 URL 邏輯保持不變，但目前 photoUrl 是 null)
             if (!activity.photoUrl.isNullOrBlank()) {
                 AsyncImage(
                     model = activity.photoUrl,
@@ -386,7 +435,6 @@ fun LazyListScope.dayTabsAndActivities(
                 }
             }
 
-            // 顯示這個 Slot 裡的所有 activities (places)
             itemsIndexed(slot.places, key = { _, act -> act.id }) { activityIndex, act ->
                 ActivityRow(activity = act, slotLabel = slot.label) {
                     // 傳遞新的索引

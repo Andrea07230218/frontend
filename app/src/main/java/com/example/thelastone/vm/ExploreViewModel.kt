@@ -7,17 +7,10 @@ import com.example.thelastone.data.model.Trip
 import com.example.thelastone.data.repo.SpotRepository
 import com.example.thelastone.data.repo.TripRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
+// 🔽🔽 1. 移除 'Flow' 相關的 import (如果不再需要) 🔽🔽
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onStart
-import kotlinx.coroutines.flow.scan
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -25,19 +18,20 @@ import javax.inject.Inject
 enum class SpotsSource { TAIWAN, AROUND_ME }
 
 data class ExploreUiState(
-    val isLoading: Boolean = true,
+    val isLoading: Boolean = true, // 👈 這個現在會用來顯示 Trips 的載入
     val error: String? = null,
 
     // Trips
     val popularTrips: List<Trip> = emptyList(),
-    val isRefreshing: Boolean = false,
+    // 🔽🔽 2. 移除了 isRefreshing 🔽🔽
+    // val isRefreshing: Boolean = false,
 
-    // Spots
+    // Spots (保持不變)
     val spots: List<PlaceLite> = emptyList(),
     val spotsLoading: Boolean = false,
     val spotsError: String? = null,
     val spotsInitialized: Boolean = false,
-    val spotsSource: SpotsSource = SpotsSource.TAIWAN // 👈 新增
+    val spotsSource: SpotsSource = SpotsSource.TAIWAN // 👈 保持
 )
 
 
@@ -49,53 +43,64 @@ class ExploreViewModel @Inject constructor(
     private val spotRepo: SpotRepository
 ) : ViewModel() {
 
-    private val refresh = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
-
-    private fun popularTripsFlow(): Flow<List<Trip>> =
-        tripRepo.observePublicTrips().map { list -> list.sortedBy { it.startDate } }
-
-    @OptIn(ExperimentalCoroutinesApi::class)
-    private val popularResource: Flow<Result<List<Trip>>> =
-        refresh.onStart { emit(Unit) }
-            .flatMapLatest {
-                popularTripsFlow()
-                    .map { Result.success(it) }
-                    .catch { e -> emit(Result.failure(e)) }
-            }
+    // 🔽🔽 3. 移除了 refresh, popularTripsFlow, popularResource 🔽🔽
+    // private val refresh = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    // private fun popularTripsFlow(): Flow<List<Trip>> = ...
+    // private val popularResource: Flow<Result<List<Trip>>> = ...
 
     private val _state = MutableStateFlow(ExploreUiState())
     val state: StateFlow<ExploreUiState> = _state.asStateFlow()
 
     init {
-        // Trips
+        // 🔽🔽 4. 修改 init 區塊 🔽🔽
+        // 移除原本的 Trips 區塊 (popularResource.scan...)
+
+        // 直接呼叫 API 載入「通用推薦」行程
+        loadGeneralTrips()
+
+        // Spots 由畫面決定 (邏輯不變)
+    }
+
+    /**
+     * 🔽🔽 5. 新增這個函式，用來載入「通用行程」 🔽🔽
+     */
+    private fun loadGeneralTrips() {
         viewModelScope.launch {
-            popularResource.scan(ExploreUiState()) { prev, result ->
-                if (result.isSuccess) {
-                    prev.copy(
+            // 開始載入，顯示 Loading
+            _state.update { it.copy(isLoading = true, error = null) }
+
+            runCatching {
+                // 呼叫我們在 Repository 新增的函式
+                tripRepo.fetchGeneralRecommendations()
+            }.onSuccess { trips ->
+                // 成功，更新 popularTrips 列表
+                _state.update {
+                    it.copy(
                         isLoading = false,
-                        isRefreshing = false,
-                        error = null,
-                        popularTrips = result.getOrDefault(emptyList())
-                    )
-                } else {
-                    prev.copy(
-                        isLoading = false,
-                        isRefreshing = false,
-                        error = result.exceptionOrNull()?.message ?: "發生未知錯誤"
+                        popularTrips = trips
                     )
                 }
-            }.collect { _state.value = it }
+            }.onFailure { e ->
+                // 失敗，顯示錯誤訊息
+                _state.update {
+                    it.copy(
+                        isLoading = false,
+                        error = e.message ?: "熱門行程載入失敗"
+                    )
+                }
+            }
         }
-        // Spots 由畫面決定（有權限就附近，沒權限就台灣熱門）
     }
 
+    // 🔽🔽 6. 修改 refresh 和 retry 🔽🔽
     fun refresh() {
-        viewModelScope.launch { refresh.emit(Unit) }
-        // Spots 的刷新交給畫面再決定叫哪一個（附近 or 台灣）
+        // 刷新時，重新載入通用行程
+        loadGeneralTrips()
+        // Spots 的刷新交給畫面 (邏輯不變)
     }
-    fun retry() = refresh()
+    fun retry() = loadGeneralTrips() // 重試時，也重新載入通用行程
 
-    // ====== 你要的新方法 ======
+    // ====== Spots 相關的函式 (保持不變) ======
 
     /** 使用者同意定位後：載入使用者附近 */
     fun loadSpotsAroundMe(
@@ -143,3 +148,4 @@ class ExploreViewModel @Inject constructor(
         }
     }
 }
+

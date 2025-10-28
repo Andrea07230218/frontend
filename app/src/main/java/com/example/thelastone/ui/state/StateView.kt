@@ -14,7 +14,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun LoadingState(
     modifier: Modifier = Modifier,
-    message: String = "載入中…",
+    message: String = "行程生成中…",
 ) {
     Box(
         modifier = modifier

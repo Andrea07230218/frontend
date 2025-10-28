@@ -55,6 +55,9 @@ android {
 }
 
 dependencies {
+
+    implementation("com.google.accompanist:accompanist-permissions:0.35.1-alpha")
+
     // Compose BOM + Material3
     implementation(platform("androidx.compose:compose-bom:2025.01.00"))
     implementation("androidx.compose.material3:material3")

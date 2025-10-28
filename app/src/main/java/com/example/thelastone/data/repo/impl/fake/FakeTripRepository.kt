@@ -1,4 +1,3 @@
-// 檔案路徑：data/repo/impl/fake/FakeTripRepository.kt
 package com.example.thelastone.data.repo.impl.fake // 👈 根據你的資訊，package 是這個
 
 import com.example.thelastone.data.model.Activity
@@ -110,5 +109,19 @@ class FakeTripRepository @Inject constructor() : TripRepository {
 
     override fun getTripFormForPreview(): TripForm? {
         return this.formForPreview
+    }
+
+    // 🔽🔽 【這就是缺少的函式】 🔽🔽
+    /**
+     * 呼叫 API 取得「通用」推薦行程 (給 Explore 頁用)
+     */
+    override suspend fun fetchGeneralRecommendations(): List<Trip> {
+        delay(1000) // 模擬 API 呼叫延遲
+        // 為了讓測試 UI 時能看到東西，回傳幾個假行程
+        return listOf(
+            createFakeTrip("fake-general-1"),
+            createFakeTrip("fake-general-2"),
+            createFakeTrip("fake-general-3")
+        )
     }
 }

@@ -30,4 +30,9 @@ interface TripDao {
      */
     @Query("SELECT * FROM trips WHERE visibility = 'PUBLIC'")
     fun observePublicTrips(): Flow<List<Trip>>
+    @Query("SELECT * FROM trips") // 或者根據 user ID 過濾? e.g., "SELECT * FROM trips WHERE createdBy = :userId"
+    fun observeMyTrips(/* userId: String? */): Flow<List<Trip>>
+
+    @Query("SELECT * FROM trips WHERE id = :tripId")
+    suspend fun getTripByIdBlocking(tripId: String): Trip? // 用於 getTripDetail
 }
