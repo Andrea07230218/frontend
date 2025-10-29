@@ -11,6 +11,6 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object StartModule {
-    @Provides @Singleton
-    fun provideStartRepository(): StartRepository = StartRepositoryFake()
+//    @Provides @Singleton
+//    fun provideStartRepository(): StartRepository = StartRepositoryFake()
 }

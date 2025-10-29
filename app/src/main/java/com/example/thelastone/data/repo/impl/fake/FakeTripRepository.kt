@@ -2,6 +2,7 @@ package com.example.thelastone.data.repo.impl.fake // 👈 根據你的資訊，
 
 import com.example.thelastone.data.model.Activity
 import com.example.thelastone.data.model.AgeBand
+import com.example.thelastone.data.model.Alternative // 👈 1. 【新增】Import
 import com.example.thelastone.data.model.Trip
 import com.example.thelastone.data.model.TripForm
 import com.example.thelastone.data.model.TripVisibility // 👈 補上 Import
@@ -94,6 +95,22 @@ class FakeTripRepository @Inject constructor() : TripRepository {
     override suspend fun addActivity(tripId: String, dayIndex: Int, activity: Activity) { delay(100) }
     override suspend fun updateActivity(tripId: String, dayIndex: Int, activityIndex: Int, updated: Activity) { delay(100) }
     override suspend fun removeActivity(tripId: String, dayIndex: Int, activityIndex: Int) { delay(100) }
+
+    // 🔽🔽 2. 【新增】貼上這個函式的實作 🔽🔽
+    override suspend fun replaceActivityInTrip(
+        tripId: String,
+        oldActivityId: String,
+        newActivityData: Alternative
+    ) {
+        // 這是 Fake Repository，所以我們只需要模擬延遲，不需要做任何事
+        delay(200)
+        println("FakeTripRepository: Pretending to replace $oldActivityId in trip $tripId")
+        // 在 Fake 中，我們不需要真的回傳更新後的 Trip，
+        // 因為 ViewModel 會呼叫 reload()，
+        // 而 observeTripDetail() 會重新發出假的 Trip
+    }
+    // 🔼🔼
+
     override suspend fun deleteTrip(tripId: String) { delay(500) }
     override suspend fun addMembers(tripId: String, userIds: List<String>) { delay(200) }
 
@@ -111,7 +128,6 @@ class FakeTripRepository @Inject constructor() : TripRepository {
         return this.formForPreview
     }
 
-    // 🔽🔽 【這就是缺少的函式】 🔽🔽
     /**
      * 呼叫 API 取得「通用」推薦行程 (給 Explore 頁用)
      */

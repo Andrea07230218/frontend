@@ -213,14 +213,17 @@ fun TripDetailScreen(
                     AlternativesDialog(
                         alts = st.alts,
                         onDismiss = { startVm.reset() },
-                        onPick = { alt ->
-                            val latestAct = resolved?.activity
+                        // 🔽🔽 ‼️ 這是你要求的修正點 ‼️ 🔽🔽
+                        onPick = { alt -> // 'alt' 是使用者選擇的新景點
+                            val latestAct = resolved?.activity // 'latestAct' 是舊景點
                             if (latestAct != null) {
-                                onEditActivity(trip.id, latestAct.id)
+                                // ✅ 呼叫 ViewModel 執行 API 替換
+                                viewModel.replaceActivity(latestAct, alt)
                             }
-                            startVm.reset()
-                            selectedActivityId = null
+                            startVm.reset()          // 關閉 StartFlow 彈窗
+                            selectedActivityId = null // 關閉 ActivityBottomSheet
                         },
+                        // 🔼🔼
                         onSeeMore = { startVm.loadMore() }
                     )
                 }
@@ -434,3 +437,23 @@ private fun Activity.toLegacyPlace(): Place {
         miniMapUrl = null
     )
 }
+
+// -----------------------------------------------------
+// 這兩個函式 (TripInfoCard 和 dayTabsAndActivities)
+// 你沒有貼上來，我先假設它們存在於別的檔案或這個檔案的底部
+// -----------------------------------------------------
+
+// @Composable
+// private fun TripInfoCard(trip: Trip) {
+//    /* ... */
+// }
+
+// @Composable
+// private fun LazyItemScope.dayTabsAndActivities(
+//    trip: Trip,
+//    selected: Int,
+//    onSelect: (Int) -> Unit,
+//    onActivityClick: (day: Int, slot: Int, actIdx: Int, act: Activity) -> Unit
+// ) {
+//    /* ... */
+// }

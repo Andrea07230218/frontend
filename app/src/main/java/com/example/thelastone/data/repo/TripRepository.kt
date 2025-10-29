@@ -1,6 +1,7 @@
 package com.example.thelastone.data.repo
 
 import com.example.thelastone.data.model.Activity
+import com.example.thelastone.data.model.Alternative // 👈 1. 加入 Import
 import com.example.thelastone.data.model.Trip
 import com.example.thelastone.data.model.TripForm
 import kotlinx.coroutines.flow.Flow
@@ -29,6 +30,21 @@ interface TripRepository {
     suspend fun addActivity(tripId: String, dayIndex: Int, activity: Activity)
     suspend fun updateActivity(tripId: String, dayIndex: Int, activityIndex: Int, updated: Activity)
     suspend fun removeActivity(tripId: String, dayIndex: Int, activityIndex: Int)
+
+    // 🔽🔽 2. 【這就是你需要的函式宣告】 🔽🔽
+    /**
+     * 替換一個行程中的活動 (景點)
+     * @param tripId 行程 ID
+     * @param oldActivityId 要被換掉的舊活動 ID
+     * @param newActivityData 用來替換的新景點資料
+     */
+    suspend fun replaceActivityInTrip(
+        tripId: String,
+        oldActivityId: String,
+        newActivityData: Alternative
+    )
+    // 🔼🔼
+
     suspend fun deleteTrip(tripId: String)
     suspend fun addMembers(tripId: String, userIds: List<String>)
 
@@ -37,7 +53,6 @@ interface TripRepository {
     fun setTripFormForPreview(form: TripForm)
     fun getTripFormForPreview(): TripForm?
 
-    // 🔽🔽 【請新增這一行】 🔽🔽
     /**
      * 呼叫 API 取得「通用」推薦行程 (給 Explore 頁用)
      */

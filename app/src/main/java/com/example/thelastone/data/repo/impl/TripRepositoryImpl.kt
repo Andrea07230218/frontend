@@ -3,11 +3,13 @@ package com.example.thelastone.data.repo.impl
 import com.example.thelastone.data.local.TripDao
 import com.example.thelastone.data.mapper.toApiRequestForm
 import com.example.thelastone.data.model.Activity
+import com.example.thelastone.data.model.Alternative
 import com.example.thelastone.data.model.Trip
 import com.example.thelastone.data.model.TripForm
 import com.example.thelastone.data.remote.ApiRecommendRequest
 import com.example.thelastone.data.remote.ApiService
 import com.example.thelastone.data.remote.RecommendationForm
+import com.example.thelastone.data.remote.ReplaceActivityRequest // 👈 1. 【新增】Import Request Body
 import com.example.thelastone.data.repo.TripRepository
 import com.example.thelastone.data.repo.TripStats
 import kotlinx.coroutines.Dispatchers
@@ -112,6 +114,39 @@ class TripRepositoryImpl @Inject constructor(
     override suspend fun addActivity(tripId: String, dayIndex: Int, activity: Activity) { TODO("Not yet implemented") }
     override suspend fun updateActivity(tripId: String, dayIndex: Int, activityIndex: Int, updated: Activity) { TODO("Not yet implemented") }
     override suspend fun removeActivity(tripId: String, dayIndex: Int, activityIndex: Int) { TODO("Not yet implemented") }
+
+    // 🔽🔽 2. 【替換掉 TODO，加入真正的 API 呼叫】 🔽🔽
+    /**
+     * 替換一個行程中的活動 (景點)
+     * @param tripId 行程 ID
+     * @param oldActivityId 要被換掉的舊活動 ID
+     * @param newActivityData 用來替換的新景點資料
+     */
+    override suspend fun replaceActivityInTrip(
+        tripId: String,
+        oldActivityId: String,
+        newActivityData: Alternative
+    ) {
+        withContext(Dispatchers.IO) {
+            // 1. 準備要傳送給 API 的 Request Body
+            val requestBody = ReplaceActivityRequest(
+                old_activity_id = oldActivityId,
+                new_activity_data = newActivityData
+            )
+
+            // 2. 呼叫我們在 ApiService.kt 中定義的函式
+            val updatedTrip = apiService.replaceActivity(
+                tripId = tripId,
+                request = requestBody
+            )
+
+            // 3. ‼ 非常重要：將 API 返回的「更新後行程」存入本地資料庫
+            //    這樣 TripDetailViewModel 才能觀察到變化並更新 UI
+            tripDao.insertTrip(updatedTrip)
+        }
+    }
+    // 🔼🔼
+
     override suspend fun deleteTrip(tripId: String) { TODO("Not yet implemented") }
     override suspend fun addMembers(tripId: String, userIds: List<String>) { TODO("Not yet implemented") }
     override suspend fun getTripStatsFor(userId: String): TripStats { TODO("Not yet implemented"); return TripStats(0, 0) }
